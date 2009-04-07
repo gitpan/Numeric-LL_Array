@@ -1,0 +1,7 @@
+Revision history for Perl extension Numeric::LL_Array.
+
+0.01  Wed Nov 30 17:55:12 2005
+	- original version; created by h2xs 1.23 with options
+		-b 5.8.7 -Afn Numeric::Array
+
+	First (stubbish) accessor works.

@@ -1,9 +1,9 @@
-void
+static void
 THIS_OP_NAME(pTHX_ AV *av, const char *p_s, int dim, carray_form format)
 {
     const TARG_ELT_TYPE *p = (TARG_ELT_TYPE *)p_s;
     array_stride tstride;
-    int n;		/* Can't stop by inspecting p: stride may be 0 */
+    array_count n;	/* Can't stop by inspecting p: stride may be 0 */
 
 /*    p += mInd2ind(dim, ind, format);	*/
     if (!dim) {
@@ -17,7 +17,7 @@ THIS_OP_NAME(pTHX_ AV *av, const char *p_s, int dim, carray_form format)
 	}
         return;
     }
-    n = format[dim - 1].lim;
+    n = format[dim - 1].count;
     tstride =   format[dim - 1].stride;
   
     if (1 == dim) {

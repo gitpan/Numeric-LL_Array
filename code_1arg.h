@@ -1,18 +1,17 @@
-void
+static void
 THIS_OP_NAME(const char *from_s, char *to_s, int dim, carray_form from_form, carray_form to_form)
 {
     const SOURCE_ELT_TYPE *from = (const SOURCE_ELT_TYPE *) from_s;
     TARG_ELT_TYPE *to = (TARG_ELT_TYPE *)to_s;
-    const SOURCE_ELT_TYPE *lim;
     array_stride fstride;
     array_stride tstride;
-    int n;		/* Can't stop by inspecting to: stride may be 0 */
+    array_count n;	/* Can't stop by inspecting to: stride may be 0 */
 
     if (!dim) {
 	DO_1OP(to[0], from[0]);
         return;
     }
-    n = to_form[dim - 1].lim;
+    n = to_form[dim - 1].count;
     fstride = from_form[dim - 1].stride;
     tstride =   to_form[dim - 1].stride;
   

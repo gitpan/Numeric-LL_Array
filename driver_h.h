@@ -1,11 +1,31 @@
-typedef int array_stride, array_ind, array_lim;	/* lim is number of items */
-typedef struct { array_stride stride; array_lim lim; } array_form1, *array_form;
+/* array_ind may be negative as a result of multi-dim_2_1-dim conversion. */
+/* array_count is non-negative; but keep in diffptr_t just in case. */
+typedef ptrdiff_t array_stride, array_ind, array_count;	/* lim is number of items */
+typedef struct { array_stride stride; array_count count; } array_form1, *array_form;
 typedef const array_form1 *carray_form;
 
-typedef struct {const char* const codes_name; void * const fp; } func_descr;
-extern const func_descr * const func_names_p;
-extern const int func_names_c;
+typedef void (*f_0arg_p)(char *to_s, int dim, carray_form to_form);
+typedef void (*f_1arg_p)(const char *from_s, char *to_s, int dim, carray_form from_form, carray_form to_form);
+typedef void (*f_2arg_p)(const char *from1_s, const char *from2_s, char *to_s,
+ int dim, carray_form from1_form, carray_form from2_form, carray_form to_form);
+typedef void (*f_ass_p)(pTHX_ AV *av, const char *p_s, int dim, carray_form format);
+
+typedef struct {const char* const codes_name; void *const fp; } func_descr;
+typedef struct {const char* const codes_name; f_0arg_p const fp; } f_0arg_descr;
+typedef struct {const char* const codes_name; f_1arg_p const fp; } f_1arg_descr;
+typedef struct {const char* const codes_name; f_2arg_p const fp; } f_2arg_descr;
+typedef struct {const char* const codes_name; f_ass_p  const fp; } f_ass_descr;
+extern const f_0arg_descr * const f_0arg_names_p;
+extern const int f_0arg_names_c;
+extern const f_1arg_descr * const f_1arg_names_p;
+extern const int f_1arg_names_c;
+extern const f_2arg_descr * const f_2arg_names_p;
+extern const int f_2arg_names_c;
+extern const f_ass_descr * const f_ass_names_p;
+extern const int f_ass_names_c;
 
 extern const unsigned char* name_by_t;
 extern const unsigned char* const size_by_t_p;
 extern const unsigned char* const duplicate_types_s;
+
+extern void croak_on_invalid_entry(void);

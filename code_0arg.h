@@ -1,15 +1,15 @@
-void
+static void
 THIS_OP_NAME(char *to_s, int dim, carray_form to_form)
 {
     TARG_ELT_TYPE *to = (TARG_ELT_TYPE *)to_s;
     array_stride tstride;
-    int n;		/* Can't stop by inspecting to: stride may be 0 */
+    array_count n;	/* Can't stop by inspecting to: stride may be 0 */
 
     if (!dim) {
 	DO_0OP(to[0]);
         return;
     }
-    n = to_form[dim - 1].lim;
+    n = to_form[dim - 1].count;
     tstride =   to_form[dim - 1].stride;
   
     if (1 == dim) {

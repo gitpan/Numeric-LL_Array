@@ -5,3 +5,8 @@ Revision history for Perl extension Numeric::LL_Array.
 		-b 5.8.7 -Afn Numeric::Array
 
 	First (stubbish) accessor works.
+
+0.02
+	Regularization of internal typing/field naming system.
+	Real accessors work.
+	0-arg methods work.

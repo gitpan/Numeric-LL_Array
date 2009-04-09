@@ -18,13 +18,19 @@ WriteMakefile(
 
 sub MY::postamble {
   '
-AUTOGEN_C_FILES = driver_c.h
+AUTOGEN_C_FILES = driver_ass.h driver_0arg.h driver_1arg.h driver_2arg.h
 
 LL_Array$(OBJ_EXT) : driver_h.h
 
-driver_c$(OBJ_EXT) : driver_h.h $(AUTOGEN_C_FILES) code_2arg.h code_1arg.h code_0arg.h
+driver_ass$(OBJ_EXT) :  driver_h.h driver_ass.h  code_accessor.h
 
-driver_c.h: write_driver.pl
+driver_0arg$(OBJ_EXT) : driver_h.h driver_0arg.h code_0arg.h
+
+driver_1arg$(OBJ_EXT) : driver_h.h driver_1arg.h code_1arg.h
+
+driver_2arg$(OBJ_EXT) : driver_h.h driver_2arg.h code_2arg.h
+
+$(AUTOGEN_C_FILES): write_driver.pl
 	$(PERLRUN) write_driver.pl
 ';
 }

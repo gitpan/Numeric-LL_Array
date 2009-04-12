@@ -2,10 +2,10 @@
 use strict;
 use Config;
 
-open OUT_ASS,  '>', "driver_ass.h" or die;
-open OUT_0ARG, '>', "driver_0arg.h" or die;
-open OUT_1ARG, '>', "driver_1arg.h" or die;
-open OUT_2ARG, '>', "driver_2arg.h" or die;
+open OUT_ASS,  '> driver_ass.h'  or die;
+open OUT_0ARG, '> driver_0arg.h' or die;
+open OUT_1ARG, '> driver_1arg.h' or die;
+open OUT_2ARG, '> driver_2arg.h' or die;
 
 my(@list_ass, @list_0arg, @list_1arg, @list_2arg, $name);
 
@@ -23,8 +23,8 @@ my %type = (		# XXX Add long flavors later...
 	);
 
 $type{D} = 'long double' if $Config{d_longdbl};
-$type{Q} = 'Uquad_t' if $Config{d_longlong};
-$type{'q'} = 'Quad_t' if $Config{d_longlong};
+# XXXX Could do also with d_longlong, but need to define Quad_t ourselves...
+$type{'q'} = 'Quad_t', $type{Q} = 'Uquad_t' if $Config{d_quad};
 
 # The generated C file takes ages to compile; reduce duplicates...
 my %size = (qw(c 1 s), $Config{shortsize}, i => $Config{intsize},
@@ -70,24 +70,14 @@ print OUT_0ARG <<EOP;
 #define RET_2__(a)	(2)
 #define RET_m1__(a)	(-1)
 
-const unsigned char* const duplicate_types_s = "$dups_s";
-const unsigned char* name_by_t  = " " "$types_str";
-static const unsigned char size_by_t[] = {  1,  $sizeof, 0 };
-const unsigned char * const size_by_t_p = size_by_t;
-
-const char*
-name_by_type_ord(void)
-{
-  return name_by_t;
-}
-
-const char*
-sizeof_by_type_ord(void)
-{
-  return size_by_t;
-}
+const char duplicate_types_s[] = "$dups_s";
+const char name_by_t[]         = " " "$types_str";
+const unsigned char size_by_t[]      = {  1,  $sizeof, 0 };
 
 EOP
+
+#sub protect_q ($) {my $t = shift; $t =~ /q/i ? ('#ifdef HAVE_QUAD', "#endif") : ('' '')}
+#my($protect_q, $unprotect_q) = ('','');
 
 # accessors
 for my $t (keys %type) {
@@ -289,7 +279,7 @@ my %list_t = (_ass  => [\@list_ass,  0, \*OUT_ASS],
 for my $list_t (qw(_ass _0arg _1arg _2arg)) {
   print {$list_t{$list_t}[2]} <<EOP;
 const f${list_t}_descr f${list_t}_names[] = {
-	{ 0, (f${list_t}_p)&croak_on_invalid_entry},
+	{ "\\0\\0\\0\\0", (f${list_t}_p)&croak_on_invalid_entry},
 EOP
 
   for my $f (@{ $list_t{$list_t}[0] }) {

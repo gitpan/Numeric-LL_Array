@@ -45,42 +45,9 @@ sv_2_carray_form(int dim, SV *sv)
 	}
 	return (carray_form)format;
     }
+    croak("format argument must be an array reference or a string");
+    return 0;
 }
-
-#if 0	/* Code for testing */
-void
-sc2d_assign_(const signed char *from_s, char *to_s, int dim, carray_form from_form, carray_form to_form)
-{
-    const signed char *from = (const signed char *) from_s;
-    double *to = (double *)to_s;
-    const signed char* lim;
-    array_stride fstride;
-    array_stride tstride;
-    array_count n;
-
-    if (!dim) {
-	to[0] = (double)from[0];
-        return;
-    }
-    n = from_form[dim - 1].count;
-    fstride = from_form[dim - 1].stride;
-    tstride =   to_form[dim - 1].stride;
-  
-    if (1 == dim) {
-	while (n--) {
-	  *to = (double)*from;
-	  from += fstride;
-	  to += tstride;
-	}
-    } else {
-	while (n--) {
-	  sc2d_assign_((const char*)from, (char*)to, dim-1, from_form, to_form);
-	  from += fstride;
-	  to += tstride;
-	}
-    }
-}
-#endif
 
 array_ind
 mInd2ind(int dim, const array_ind *ind, carray_form format)
@@ -148,27 +115,6 @@ d_extract_as_ref(char *s, int start, int count, int stride)
     return newRV_noinc((SV*)av);
 }
 
-#if 0		/* What is the intent of this??? */
-void
-d_extract_to(SV *sv, char *s, int start, int count, int o_start, int stride, int o_stride)
-{
-    double *arr = (double *)s;
-    AV *av;
-    SV **sv_arr;
-
-    av_fill(av, count-1);
-    sv_arr = AvARRAY(av);
-
-    arr += start;
-
-    while (count--) {
-	*sv_arr++ = newSVnv(*arr);
-	arr += stride;
-    }
-    return newRV_noinc((SV*)av);
-}
-#endif
-
 static int
 find_in_ftable(char *s, func_descr *table, int tcount)
 {
@@ -192,15 +138,19 @@ find_in_ftables(char *s, int arity)
     case 1:
 	return find_in_ftable(s, (func_descr *)f_1arg_names_p, f_2arg_names_c);
     case 2:
+    case -2:
 	return find_in_ftable(s, (func_descr *)f_2arg_names_p, f_2arg_names_c);
     default:
-	croak("Unknown table arity for find: %d; expect -1,0,1,2", arity);
+	croak("Unknown table arity for find: %d; expect -1,0,1,2,-2", arity);
   }
   return 0;
 }
 
 XS(XS_Numeric__LL_Array___a_accessor__INTERFACE); /* prototype to pass -Wmissing-prototypes */
 XS(XS_Numeric__LL_Array__0arg__INTERFACE); /* prototype to pass -Wmissing-prototypes */
+XS(XS_Numeric__LL_Array__1arg__INTERFACE); /* prototype to pass -Wmissing-prototypes */
+XS(XS_Numeric__LL_Array__2arg__INTERFACE); /* prototype to pass -Wmissing-prototypes */
+XS(XS_Numeric__LL_Array__2arg__INTERFACE_inverted); /* prototype to pass -Wmissing-prototypes */
 
 static void
 init_interface(char *perl_name, int arity, char *code, char *perl_file)
@@ -208,6 +158,8 @@ init_interface(char *perl_name, int arity, char *code, char *perl_file)
   CV *mycv;
   int n = find_in_ftables(code, arity);
 
+  if (!n)
+    croak("C function with load code `%s', arity=%d not found", code, arity);
   switch (arity) {
     case -1:	/* Accessor */
 	mycv = newXS(perl_name, XS_Numeric__LL_Array___a_accessor__INTERFACE, perl_file);
@@ -215,20 +167,25 @@ init_interface(char *perl_name, int arity, char *code, char *perl_file)
     case 0:
 	mycv = newXS(perl_name, XS_Numeric__LL_Array__0arg__INTERFACE, perl_file);
 	break;
-/*    case 1:
-	return find_in_ftable(s, (func_descr *)f_1arg_names_p, f_2arg_names_c);
+    case 1:
+	mycv = newXS(perl_name, XS_Numeric__LL_Array__1arg__INTERFACE, perl_file);
+	break;
     case 2:
-	return find_in_ftable(s, (func_descr *)f_2arg_names_p, f_2arg_names_c);
-*/
+	mycv = newXS(perl_name, XS_Numeric__LL_Array__2arg__INTERFACE, perl_file);
+	break;
+    case -2:
+	mycv = newXS(perl_name, XS_Numeric__LL_Array__2arg__INTERFACE_inverted, perl_file);
+	break;
     default:
-	croak("Unknown table arity for create: %d; expect -1,0,1,2", arity);
+	croak("Unknown table arity for create: %d; expect -1,0,1,2,-2", arity);
   }
   CvXSUBANY(mycv).any_i32 = n;
 }
 
 #define typeNames()		name_by_t
-#define typeSizes()		size_by_t_p
+#define typeSizes()		((char*)size_by_t)	/* unsigned char* */
 #define duplicateTypes()	duplicate_types_s
+#define ptrdiff_t_size()	sizeof(ptrdiff_t)
 
 MODULE = Numeric::LL_Array		PACKAGE = Numeric::LL_Array
 
@@ -276,7 +233,13 @@ init_interface(perl_name, arity, code, perl_file)
     char *perl_file
 
 void
-__a_accessor__INTERFACE(SV *p, I32 offset = 0, int dim = 0, SV* format = Nullsv, SV *sv = Nullsv, bool keep = FALSE)
+__a_accessor__INTERFACE(p, offset = 0, dim = 0, format = Nullsv, sv = Nullsv, keep = FALSE)
+	SV *p
+	I32 offset
+	int dim
+	SV* format
+	SV *sv
+	bool keep
     PPCODE:
    {
        AV *av;
@@ -299,23 +262,29 @@ __a_accessor__INTERFACE(SV *p, I32 offset = 0, int dim = 0, SV* format = Nullsv,
 	       av_clear(av);
 	   PUSHs(sv);
        } else
-	   Perl_croak("av is not an array reference");
+	   croak("av is not an array reference");
        if (dim && !format)
-	   Perl_croak("format should be present if dim is 0");
+	   croak("format should be present if dim is 0");
        p_s = SvPV(p, sz);
        PUTBACK;
        {
          carray_form f = sv_2_carray_form(dim, format);
 
          if (!checkfit(sz, sizeof_elt, dim, offset, f))
-             croak("Array not fitting into a playground");
+             croak("Array not fitting into a playground: "
+		   "sz=%ld, sizeof(elt)=%ld, arity=%ld, offset=%ld",
+		   (long)sz, (long)sizeof_elt, (long)dim, (long)offset);
          (f_ass_names_p[ix].fp)(aTHX_ av, p_s + sizeof_elt*offset, dim, f);
        }
        SPAGAIN;    
    }
 
 void
-_0arg__INTERFACE(SV *p, I32 offset = 0, int dim = 0, SV* format = Nullsv)
+_0arg__INTERFACE(p, offset = 0, dim = 0, format = Nullsv)
+	SV *p
+	I32 offset
+	int dim
+	SV* format
     PPCODE:
    {
        char *p_s;
@@ -324,7 +293,7 @@ _0arg__INTERFACE(SV *p, I32 offset = 0, int dim = 0, SV* format = Nullsv)
        int sizeof_elt = f_0arg_names_p[ix].codes_name[0];
 
        if (dim && !format)
-	   Perl_croak("format should be present if dim is 0");
+	   croak("format should be present if dim is 0");
        p_s = SvPV(p, sz);
        {
          carray_form f = sv_2_carray_form(dim, format);
@@ -336,14 +305,17 @@ _0arg__INTERFACE(SV *p, I32 offset = 0, int dim = 0, SV* format = Nullsv)
        XSRETURN_YES;
    }
 
-#if 0 && defined(do_1arg_later)
-
-
 void
-_1arg__INTERFACE(SV *s_p, SV *p, I32 s_offset = 0, I32 offset = 0, int dim = 0, SV* sformat = Nullsv, SV* format = Nullsv)
+_1arg__INTERFACE(s_p, p, s_offset = 0, offset = 0, dim = 0, sformat = Nullsv, format = Nullsv)
+	SV *s_p
+	SV *p
+	I32 s_offset
+	I32 offset
+	int dim
+	SV* sformat
+	SV* format
     PPCODE:
    {
-       AV *av;
        char *p_s;
        const char *sp_s;
        STRLEN sz, ssz;
@@ -352,66 +324,111 @@ _1arg__INTERFACE(SV *s_p, SV *p, I32 s_offset = 0, I32 offset = 0, int dim = 0, 
        int s_sizeof_elt = f_1arg_names_p[ix].codes_name[1];
 
        if (dim && !(format && sformat))
-	   Perl_croak("format should be present if dim is 0");
+	   croak("format should be present if dim is 0");
        p_s = SvPV(p, sz);
        sp_s = SvPV(s_p, ssz);
-       PUTBACK;
        {
          carray_form f = sv_2_carray_form(dim, format);
-         carray_form s_f = sv_2_carray_form(dim, format);
+         carray_form s_f = sv_2_carray_form(dim, sformat);
 
          if (!checkfit(sz, sizeof_elt, dim, offset, f))
              croak("Target array not fitting into a playground");
          if (!checkfit(ssz, s_sizeof_elt, dim, s_offset, s_f))
              croak("Source array not fitting into a playground");
-         (f_1arg_names_p[ix].fp)(aTHX_ av, p_s + sizeof_elt*offset, dim, f);
+         (f_1arg_names_p[ix].fp)(sp_s + s_sizeof_elt * s_offset, p_s + sizeof_elt*offset, dim, s_f, f);
        }
-       SPAGAIN;    
+       XSRETURN_YES;
    }
-
-#endif
-
-#if 0
 
 void
-__a_accessor__d_old(SV *p, I32 offset = 0, int dim = 0, SV* format = Nullsv, SV *sv = Nullsv, bool keep = FALSE)
+_2arg__INTERFACE(s1_p, s2_p, p, s1_offset = 0, s2_offset = 0, offset = 0, dim = 0, s1format = Nullsv, s2format = Nullsv, format = Nullsv)
+	SV *s1_p
+	SV *s2_p
+	SV *p
+	I32 s1_offset
+	I32 s2_offset
+	I32 offset
+	int dim
+	SV* s1format
+	SV* s2format
+	SV* format
     PPCODE:
-   {	/* Temporary wrapper for debugging, especially (1) */
-       AV *av;
-       const char *p_s;
-       STRLEN sz;
-       int sizeof_elt = sizeof(double);
+   {			/* Not implemented yet */
+       char *p_s;
+       const char *s1p_s, *s2p_s;
+       STRLEN sz, s1sz, s2sz;
+       dXSI32;		/* ix */
+       int sizeof_elt    = f_2arg_names_p[ix].codes_name[0];
+       int s1_sizeof_elt = f_2arg_names_p[ix].codes_name[1];
+       int s2_sizeof_elt = f_2arg_names_p[ix].codes_name[2];
 
-       if (!sv || !SvOK(sv))
-	   av = 0;
-       else if (!SvROK(sv) && SvTRUE(sv)) {
-	   if (dim) {
-	       av = newAV();
-	       PUSHs(sv_2mortal(newRV_noinc((SV*)av)));
-	   } else
-	       av = 0;
-       } else if (SvROK(sv) && SvTYPE(SvRV(sv))==SVt_PVAV) {
-	   av = (AV*)SvRV(sv);
-	   if (!keep)
-	       av_clear(av);
-	   PUSHs(sv);
-       } else
-	   Perl_croak("av is not an array reference");
-       if (dim && !format)
-	   Perl_croak("format should be present if dim is 0");
+       if (dim && !(format && s1format && s2format))
+	   croak("format should be present if dim is 0");
        p_s = SvPV(p, sz);
-       PUTBACK;
+       s1p_s = SvPV(s1_p, s1sz);
+       s2p_s = SvPV(s2_p, s2sz);
        {
          carray_form f = sv_2_carray_form(dim, format);
+         carray_form s1_f = sv_2_carray_form(dim, s1format);
+         carray_form s2_f = sv_2_carray_form(dim, s2format);
 
          if (!checkfit(sz, sizeof_elt, dim, offset, f))
-             croak("Array not fitting into a playground");
-         a_accessor__d(aTHX_ av, p_s + sizeof_elt*offset, dim, f);
+             croak("Target array not fitting into a playground");
+         if (!checkfit(s1sz, s1_sizeof_elt, dim, s1_offset, s1_f))
+             croak("Source1 array not fitting into a playground");
+         if (!checkfit(s2sz, s2_sizeof_elt, dim, s2_offset, s2_f))
+             croak("Source2 array not fitting into a playground");
+         (f_2arg_names_p[ix].fp)(s1p_s + s1_sizeof_elt * s1_offset,
+				 s2p_s + s2_sizeof_elt * s2_offset,
+				 p_s + sizeof_elt*offset, dim, s1_f, s2_f, f);
        }
-       SPAGAIN;    
+       XSRETURN_YES;
    }
 
-#endif
+void
+_2arg__INTERFACE_inverted(s2_p, s1_p, p, s2_offset = 0, s1_offset = 0, offset = 0, dim = 0, s2format = Nullsv, s1format = Nullsv, format = Nullsv)
+	SV *s2_p
+	SV *s1_p
+	SV *p
+	I32 s2_offset
+	I32 s1_offset
+	I32 offset
+	int dim
+	SV* s2format
+	SV* s1format
+	SV* format
+    PPCODE:
+   {			/* Not implemented yet */
+       char *p_s;
+       const char *s1p_s, *s2p_s;
+       STRLEN sz, s1sz, s2sz;
+       dXSI32;		/* ix */
+       int sizeof_elt    = f_2arg_names_p[ix].codes_name[0];
+       int s1_sizeof_elt = f_2arg_names_p[ix].codes_name[1];
+       int s2_sizeof_elt = f_2arg_names_p[ix].codes_name[2];
+
+       if (dim && !(format && s1format && s2format))
+	   croak("format should be present if dim is 0");
+       p_s = SvPV(p, sz);
+       s1p_s = SvPV(s1_p, s1sz);
+       s2p_s = SvPV(s2_p, s2sz);
+       {
+         carray_form f = sv_2_carray_form(dim, format);
+         carray_form s1_f = sv_2_carray_form(dim, s1format);
+         carray_form s2_f = sv_2_carray_form(dim, s2format);
+
+         if (!checkfit(sz, sizeof_elt, dim, offset, f))
+             croak("Target array not fitting into a playground");
+         if (!checkfit(s1sz, s1_sizeof_elt, dim, s1_offset, s1_f))
+             croak("Source1 array not fitting into a playground");
+         if (!checkfit(s2sz, s2_sizeof_elt, dim, s2_offset, s2_f))
+             croak("Source2 array not fitting into a playground");
+         (f_2arg_names_p[ix].fp)(s1p_s + s1_sizeof_elt * s1_offset,
+				 s2p_s + s2_sizeof_elt * s2_offset,
+				 p_s + sizeof_elt*offset, dim, s1_f, s2_f, f);
+       }
+       XSRETURN_YES;
+   }
 
 const char*
 typeNames()
@@ -422,3 +439,5 @@ typeSizes()
 const char*
 duplicateTypes()
 
+int
+ptrdiff_t_size()

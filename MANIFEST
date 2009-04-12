@@ -1,3 +1,4 @@
+typemap
 LL_Array.xs
 Changes
 Makefile.PL
@@ -8,7 +9,7 @@ code_1arg.h
 code_0arg.h
 code_accessor.h
 README
-write_driver.pl
+utils/write_driver.pl
 driver_h.h
 driver_0arg.c
 driver_1arg.c

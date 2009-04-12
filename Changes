@@ -10,3 +10,16 @@ Revision history for Perl extension Numeric::LL_Array.
 	Regularization of internal typing/field naming system.
 	Real accessors work.
 	0-arg methods work.
+
+0.03
+	1-arg, 2-arg methods implemented (minimally tested only).
+	Semantic of playgrounds, strides and formats documented.
+	Naming convention of the functions documented.
+	The 0, invalid, entry in the dispatch table modified to cause
+	  croak(), not segfault.
+	Avoid creation of XSUBs referencing the invalid 0 entry.
+	Accessors for Perl format letters for internally used types.
+	More reasonable docs.
+	typemap added.
+	Clean headers for types and unused functions.
+	Check with Perl v>= 5.00553, and with threads.

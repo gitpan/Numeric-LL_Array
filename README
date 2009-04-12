@@ -12,25 +12,26 @@ Binary operations are defined only for target type being one of the source types
 
 Dot product operation: targ += s1 * s2.
 
-NEED: > etc needs casts?; cmp()
 NEED: product with wider target; same for lshift...
 	(need src casts...)
 NEED: modf, ldexp, frexp (all take *l), cbrt...
-NEED: min/max ???
+NEED: min/max ???  min_assign???
 NEED: How to find first elt which breaks conditions (as in a[n+1] == a[n]+1???
 NEED: more intelligent choice of accessors for q/Q and D...
 NEED: accessor to long double max-aligned (to 16 when size is between 8 and 16)
-NEED: creation of Perl funcs undoing our econimizing on C level...
 NEED: abs() for long long?
-NEED: signed vs unsigned comparison?
+NEED: signed vs unsigned comparison? char-vs-quad comparison? cmp?
+NEED: pseudo-flavor: k-th coordinate of the index
 
-NEED: ceil, floor, trunc, rint
+DONE: creation of Perl funcs undoing our econimizing on C level...
+DONE: ceil, floor, trunc, rint (all take *l)
 DONE: comparison 
 DONE: accessors, >, == etc
 DONE: remove duplicate flavors for commutative 2-arg operations...
 DONE: make methods static
 DONE: skip duplicate sizes (such as int/long may be)...
 DONE: skip duplicate commutative (first size never larger than the second)...
+DONE: packId_star_format
 
 INSTALLATION
 
@@ -43,7 +44,14 @@ To install this module type the following:
 
 DEPENDENCIES
 
-None.
+A fully working Perl installation.  Since vendor-supplied installations
+most of the time are not "fully working", Perl's which are not compiled
+on the machine in question are not supported (unless you can prove you
+know what you are talking about).
+
+[It may take a pretty large amount of memory and time to compile the
+ C files used by this module.  Expect needs of about 512MB of memory,
+ and minutes of time on even on fast hardware of 2009.]
 
 COPYRIGHT AND LICENCE
 
@@ -53,31 +61,3 @@ This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself, either Perl version 5.8.2 or,
 at your option, any later version of Perl 5 you may have available.
 
-
-
-========================================================
-
-One of the principal overheads of using Perl for numeric vector calculations
-is the need to constantly create and destroy a large amount of Perl values
-(this need is not present in calculations over scalars, since Perl knows how
-to reuse implicit temporary variables).
-
-Thus, in this package, we provide a way to manipulate vectors "in place"
-without creation of new Perl values.  Additionally, the calculations over
-slots in a vector are performed in C, thus significantly reducing overhead
-of Perl over C.
-
-One of the design goals is that many vectors should be able to use the
-same C array of type double[] (possibly with offset and a stride), so over a
-subarray does not require a new allocation.  The C array is stored in
-PVX of a Perl variable, so it may be refcounted in the usual Perlish way.
-
-(Future; currently very low-level) Layout of an object:
-   RV:		double[]
-   IV:		(IV)pointer to sub-array descriptor:
-			struct { STRLEN start;
-				 I32    dim;
-				 struct { I32 size, stride} [dim]; };
-
-(may also need total amount of elements, and total amount of elements in
-all subarrays...)

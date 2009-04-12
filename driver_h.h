@@ -4,6 +4,14 @@ typedef ptrdiff_t array_stride, array_ind, array_count;	/* lim is number of item
 typedef struct { array_stride stride; array_count count; } array_form1, *array_form;
 typedef const array_form1 *carray_form;
 
+#ifndef pTHX_		/* pport.h can't be included in multiple files */
+#  define pTHX_
+#  define aTHX_
+#endif
+#ifndef UVSIZE
+#   define newSVuv newSViv
+#endif
+
 typedef void (*f_0arg_p)(char *to_s, int dim, carray_form to_form);
 typedef void (*f_1arg_p)(const char *from_s, char *to_s, int dim, carray_form from_form, carray_form to_form);
 typedef void (*f_2arg_p)(const char *from1_s, const char *from2_s, char *to_s,
@@ -24,8 +32,8 @@ extern const int f_2arg_names_c;
 extern const f_ass_descr * const f_ass_names_p;
 extern const int f_ass_names_c;
 
-extern const unsigned char* name_by_t;
-extern const unsigned char* const size_by_t_p;
-extern const unsigned char* const duplicate_types_s;
+extern const char name_by_t[];
+extern const unsigned char size_by_t[];
+extern const char duplicate_types_s[];
 
 extern void croak_on_invalid_entry(void);

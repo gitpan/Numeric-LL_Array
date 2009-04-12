@@ -1,4 +1,3 @@
-use 5.008007;
 use ExtUtils::MakeMaker;
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
 # the contents of the Makefile that is written.
@@ -14,9 +13,14 @@ WriteMakefile(
     INC               => '-I.', # e.g., '-I. -I/usr/include/other'
 	# Un-comment this if you add C files to link with later:
     OBJECT            => '$(O_FILES)', # link all the C files too
+    clean	      => { FILES => 'driver_0arg.h driver_1arg.h driver_2arg.h driver_ass.h' },
 );
 
 sub MY::postamble {
+  ($[ < 5.006 ? "
+PERLRUN = $^X
+
+" : '') .
   '
 AUTOGEN_C_FILES = driver_ass.h driver_0arg.h driver_1arg.h driver_2arg.h
 
@@ -30,8 +34,8 @@ driver_1arg$(OBJ_EXT) : driver_h.h driver_1arg.h code_1arg.h
 
 driver_2arg$(OBJ_EXT) : driver_h.h driver_2arg.h code_2arg.h
 
-$(AUTOGEN_C_FILES): write_driver.pl
-	$(PERLRUN) write_driver.pl
+$(AUTOGEN_C_FILES): utils/write_driver.pl
+	$(PERLRUN) utils/write_driver.pl
 ';
 }
 

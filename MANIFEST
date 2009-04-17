@@ -17,4 +17,5 @@ driver_2arg.c
 driver_ass.c 
 t/Numeric-LL_Array.t
 lib/Numeric/LL_Array.pm
+examples/Poisson_solver_Chebyshev_relaxation.pl
 META.yml                                 Module meta-data (added by MakeMaker)

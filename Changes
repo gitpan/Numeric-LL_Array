@@ -23,3 +23,10 @@ Revision history for Perl extension Numeric::LL_Array.
 	typemap added.
 	Clean headers for types and unused functions.
 	Check with Perl v>= 5.00553, and with threads.
+
+0.04
+	Lists of supported handlers provided.
+	Remove defaults for arguments in 0- 1- 2-arg handlers.
+	Misprint in lookup of 1-arg handlers.
+	Hint about passing by reference.
+	examples/Poisson_solver_Chebyshev_relaxation.pl

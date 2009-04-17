@@ -5,7 +5,7 @@
 
 # change 'tests => 1' to 'tests => last_test_to_print';
 
-use Test::More tests => 293;
+use Test::More tests => 297;
 BEGIN { use_ok('Numeric::LL_Array', qw(packId_star_format packId_star
 				       packId_star_d packId_star_C)) };
 
@@ -275,4 +275,7 @@ for my $t (qw(c C s S i I l L q Q f d D)) {
   is_deeply(&{"access_$t"}($s1, 12, 2, $form, 1), [[90,86,82],[92,88,84]], "2-dim accessor after +, stride=-2,1/array, type=$t");
 }
 
-
+is eval("use Numeric::LL_Array 'access_R'; 1"), undef, "missing accessor";
+is eval("use Numeric::LL_Array 'd0_nonesuch'; 1"), undef, "missing 0-arg";
+is eval("use Numeric::LL_Array 'd2d1_nonesuch'; 1"), undef, "missing 1-arg";
+is eval("use Numeric::LL_Array 'dd2d2_nonesuch'; 1"), undef, "missing 2-arg";

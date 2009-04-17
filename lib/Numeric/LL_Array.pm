@@ -21,7 +21,7 @@ require Exporter;
 	
 );
 
-$VERSION = '0.03';
+$VERSION = '0.04';
 
 my %exported;
 sub import {
@@ -298,19 +298,40 @@ and use C<access_l>).
 
 Perl functions which modify one array and take no source are named
 <T0_type>; here C<T> is a letter encoding the flavor, and C<type> is
-the identifier describing the semantic of the function:
+the identifier describing the semantic of the function (the
+corresponding C or Perl operator is put below, when it is different):
 
-  list???
+  negate flip_sign bit_complement incr decr 0   1   2  m1
+  !      -         ~              ++   --   0   1   2  -1
 
-For example, to increment C<signed char> array, one uses the function named
-C<c0_incr>.
+  abs cos sin tan acos asin atan exp log log10 sqrt ceil floor trunc rint
+
+(If C operation takes an argument, we do C<target = OP(target)>,
+otherwise C<target = OP>.) For example, to increment C<signed char>
+array, one uses the function named C<c0_incr>.  (The operations in the
+second row (except abs) are implemented only for floating point types.)
 
 Perl functions which use one array ("source") to modify another ("target")
 are named <S2T1_type>; here C<T> is a letter encoding the target flavor, and
 C<S> encodes the source flavor.  C<type> is the identifier describing the
 semantic of the function:
 
-  list???
+  cos sin tan acos asin atan exp log log10 sqrt ceil floor trunc rint
+
+(only for floating point types, and with target type equal to source type),
+or C<assign> for assignment (possibly with type conversion), or
+
+  plus_assign   minus_assign   mult_assign   div_assign   remainder_assign
+  +=            -=             *=            /=           %=
+
+  lshift_assign  rshift_assign  pow_assign
+  <<=            >>=            **=
+
+  negate flip_sign bit_complement abs ceil floor trunc rint
+
+(The shift operations are currently supported only for non-floating
+point types.  The C<ceil floor trunc rint> are supported only for
+floating-point source types.)
 
 For example, to convert C<unsigned long> array to a C<long double> array,
 one uses the function named C<L2D1_assign>.
@@ -321,7 +342,12 @@ encoding the target flavor, C<s> and C<S> encode the source1 and source2
 flavors correspondingly.  C<type> is the identifier describing the
 semantic of the function:
 
-  list???
+  plus minus mult div remainder pow lt gt le ge eq ne lshift rshift
+
+One can also use C<sproduct> for the operation C<target += source1 *
+source2>.  The target type must coincide with one of the source types,
+except for C<mult> and C<sproduct>, where additionally implemented
+"wider types" out of C<f d D q Q> are supported.
 
 For example, to add C<signed short> array and C<unsigned int>
 and write the result to a C<unsigned long> array, one uses the function named
@@ -393,6 +419,26 @@ So the total complexity of this module is about 200 lines of C code,
 450 lines of Perl, and 400 lines of XSUB (including some code for testing
 and developing).
 
+=head1 HINTS
+
+This module deals with large memory buffers.  In Perl, passing arguments
+to subroutines does not involve copying the memory buffers of string
+arguments.  However, the common construction
+
+  my $arg1 = shift;
+
+I<does> involve copying of memory buffers.
+
+So there are two ways to create Perl subroutines which do not do extraneous
+copying: first (ugly) way: access arguments as C<$_[N]>.  Second way: change
+the signature of Perl subroutines: they should take playgrounds as references,
+and dereference them only when passing to handlers.
+
+  sub foo ($) { my $pg = shift; ...  d0_sin $$pg, ...
+
+  ...
+  foo \$playground;
+
 =head1 BUGS
 
 NEED: product with wider target; same for lshift...
@@ -405,6 +451,8 @@ NEED: accessor to long double max-aligned (to 16 when size is between 8 and 16)
 NEED: abs() for long long?
 NEED: signed vs unsigned comparison? char-vs-quad comparison? cmp?
 NEED: pseudo-flavor: k-th coordinate of the index
+NEED: log log10 sqrt with non-floating point targets
+NEED: bitwise operators, and assignment flavors
 
 =head1 AUTHOR
 

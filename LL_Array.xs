@@ -136,7 +136,7 @@ find_in_ftables(char *s, int arity)
     case 0:
 	return find_in_ftable(s, (func_descr *)f_0arg_names_p, f_0arg_names_c);
     case 1:
-	return find_in_ftable(s, (func_descr *)f_1arg_names_p, f_2arg_names_c);
+	return find_in_ftable(s, (func_descr *)f_1arg_names_p, f_1arg_names_c);
     case 2:
     case -2:
 	return find_in_ftable(s, (func_descr *)f_2arg_names_p, f_2arg_names_c);
@@ -306,7 +306,7 @@ _0arg__INTERFACE(p, offset = 0, dim = 0, format = Nullsv)
    }
 
 void
-_1arg__INTERFACE(s_p, p, s_offset = 0, offset = 0, dim = 0, sformat = Nullsv, format = Nullsv)
+_1arg__INTERFACE(s_p, p, s_offset, offset, dim, sformat, format)
 	SV *s_p
 	SV *p
 	I32 s_offset
@@ -341,7 +341,7 @@ _1arg__INTERFACE(s_p, p, s_offset = 0, offset = 0, dim = 0, sformat = Nullsv, fo
    }
 
 void
-_2arg__INTERFACE(s1_p, s2_p, p, s1_offset = 0, s2_offset = 0, offset = 0, dim = 0, s1format = Nullsv, s2format = Nullsv, format = Nullsv)
+_2arg__INTERFACE(s1_p, s2_p, p, s1_offset, s2_offset, offset, dim, s1format, s2format, format)
 	SV *s1_p
 	SV *s2_p
 	SV *p
@@ -386,7 +386,7 @@ _2arg__INTERFACE(s1_p, s2_p, p, s1_offset = 0, s2_offset = 0, offset = 0, dim = 
    }
 
 void
-_2arg__INTERFACE_inverted(s2_p, s1_p, p, s2_offset = 0, s1_offset = 0, offset = 0, dim = 0, s2format = Nullsv, s1format = Nullsv, format = Nullsv)
+_2arg__INTERFACE_inverted(s2_p, s1_p, p, s2_offset, s1_offset, offset, dim, s2format, s1format, format)
 	SV *s2_p
 	SV *s1_p
 	SV *p

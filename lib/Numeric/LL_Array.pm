@@ -21,7 +21,7 @@ require Exporter;
 	
 );
 
-$VERSION = '0.04';
+$VERSION = '0.05';
 
 my %exported;
 sub import {
@@ -366,10 +366,13 @@ letter" for each flavor of the array:
   packId_format    packId_star_format
   packId_T         packId_star_T
 
-here C<T> is a flavor specifier for a type used by this module.  The
-functions on the left return the letter, on the right return a letter
+here C<T> is a flavor specifier for a type used by this module.
+
+The functions on the left return the letter, on the right return a letter
 followed by C<*>.  For example, packId_L() would return C<L!> on newer
-Perls, and a suitable substitute on the older ones.
+Perls, and a suitable substitute on the older ones.  The functions on
+top return the pack() argument for working with offsets and strides in the
+array.
 
 Additionally, functions C<packId($t)>, C<packId_star($t)> are
 available; they take type letter (or C<'format'>) as a parameter.
@@ -421,6 +424,8 @@ and developing).
 
 =head1 HINTS
 
+=head2 Avoiding extraneous copying
+
 This module deals with large memory buffers.  In Perl, passing arguments
 to subroutines does not involve copying the memory buffers of string
 arguments.  However, the common construction
@@ -439,6 +444,62 @@ and dereference them only when passing to handlers.
   ...
   foo \$playground;
 
+=head2 Using extra dimensions
+
+Consider a problem of convolving two arrays C<A>, C<B> of sizes C<a>
+and C<b> with C<a E<gt> b>; the result is an array of size C<a+b-1> which
+has C<RES[k] = SUM A[k-t] B[t]> (here k changes between C<b-1> and C<a-1>,
+and summation runs over t between 0 and C<b-1>).  To conform to API of
+this module, change indices of the result to C<0..a-b>.
+
+Then one can calculate this by
+
+  Assign 0 to RES
+  Do sproduct() with target RES', and sources A', B'
+
+Here C<RES', A', B'> are arrays C<RES, A, B> with an added "fake" dimension.
+Assume that strides of C<A, B, RES> are 1; then the strides of C<A'> are C<1,-1>,
+of C<B'> are C<0,1>, and of C<RES'> are C<1,0>, and the start position of A'
+is shifted to correspond to C<A[b-1]>.
+
+One can immediately modify this to handle multi-dimensional convolution.
+Moreover, sometimes one can modify this to handle some sparse array
+configurations.  For example, suppose that C<B> is the Laplace kernel
+
+  0  1 0
+  1 -4 1
+  0  1 0
+
+and C<A> is an array of size C<l x m>.  Then the result is of size
+C<l-2 x m-2>, and can be calculated as:
+
+  Make an array mFOUR of size 1 with content -4.
+    Make an array mFOUR' of size l x m with the same buffer, and strides 0,0
+  Make an array ONE of size 1 with content 1.
+    Make an array ONE' of size l x m x 2 x 2 with the same buffer,
+    and strides 0,0,0,0
+  RES = A * mFOUR	(pointwise multiplication)
+  Do sproduct() with target RES', and sources A', ONE'
+
+Here C<RES'> has strides C<1,l,0,0> (we assume that C<A> has strides C<1,l>),
+size C<l-2 x m-2 x 2 x 2>, while C<A'> has strides C<1,l,-l+1,l+1>, and
+starts at position of index [l,0] of C<A>.
+
+Essentially, we treat the middle C<4> of C<B> separately, and note that
+the remaining C<1>s form a square.  (In fact, a parallelogram instead
+of a square would be fine too.)  When "positioned" on top of C<A>, this square
+has one side going up-right (which gives a stride C<-l+1>), another down-right
+(which gives a stride C<l+1>) - these are strides of the "extra" two dimensions
+of C<A'>.
+
+Note that to calculate contribution of C<1>s into convolution, one needs to
+do C<4(a-2)(b-2)> multiplications, and this is exactly the total size of C<A'>.
+So the calculation above makes no unneeded multiplications (e.g., C<0>s
+in corners of C<B> are completely ignored).  (Of course,
+by breaking the steps into C<a-2 x b-2 x 2 x 2>, we do some extra
+store/retrieve operations - comparing to doing straightforward convolution.
+But these operations are done in C, where they are much cheaper than in Perl.)
+
 =head1 BUGS
 
 NEED: product with wider target; same for lshift...
@@ -453,6 +514,13 @@ NEED: signed vs unsigned comparison? char-vs-quad comparison? cmp?
 NEED: pseudo-flavor: k-th coordinate of the index
 NEED: log log10 sqrt with non-floating point targets
 NEED: bitwise operators, and assignment flavors
+NEED: parametrized import, as in qw(:x=d access_x)
+NEED: check for overflow of ptrdiff_t in checkfit()
+
+BSD misses many C<long double> APIs (elementary functions, rint() and C<**>).
+So when deciding whether one wants to do operations over C<long double>s,
+one should either check for presence of the needed functions, or check
+return value of elementary_D_missing().
 
 =head1 AUTHOR
 

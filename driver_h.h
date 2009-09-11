@@ -32,6 +32,8 @@ extern const int f_2arg_names_c;
 extern const f_ass_descr * const f_ass_names_p;
 extern const int f_ass_names_c;
 
+extern const int has_sinl;
+
 extern const char name_by_t[];
 extern const unsigned char size_by_t[];
 extern const char duplicate_types_s[];

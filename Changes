@@ -30,3 +30,15 @@ Revision history for Perl extension Numeric::LL_Array.
 	Misprint in lookup of 1-arg handlers.
 	Hint about passing by reference.
 	examples/Poisson_solver_Chebyshev_relaxation.pl
+
+0.05
+	checkfit() did not check for negative (and 0!) counts
+	checkfit() did not match semantic of source sizes
+	Beginning of framework for 2dim multi-grid (does not treat
+		boundary conditions well enough, so convergence is slower
+		than expected).
+	We take into account that long double is broken under BSD;
+		elementary functions over `D' argument are not supported
+		if elementary_D_missing() is TRUE; currently
+  cos sin tan acos asin atan exp log log10 sqrt ceil floor trunc rint pow.
+	Hints on implementation of convolution.

@@ -5,7 +5,7 @@
 
 # change 'tests => 1' to 'tests => last_test_to_print';
 
-use Test::More tests => 297;
+use Test::More tests => 298;
 BEGIN { use_ok('Numeric::LL_Array', qw(packId_star_format packId_star
 				       packId_star_d packId_star_C)) };
 
@@ -235,9 +235,9 @@ for my $t (qw(c C s S i I l L q Q f d D)) {
   no strict 'refs';
   is_deeply(&{"access_$t"}($s1, 12, 2, $form, 1), [[57,55,53],[58,56,54]], "2-dim accessor, stride=-2,1/array, wrapped, type=$t, at end");
   my $r = eval {&{"access_$t"}($s1, 13, 2, $form, 1); 1} || $@;
-  like $r, qr/Array not fitting/i, 'limit at large end reached';
+  like $r, qr/Array.* not fitting/i, 'limit at large end reached';
   $r = eval {&{"access_$t"}($s1, 3, 2, $form, 1); 1} || $@;
-  like $r, qr/Array not fitting/i, 'limit at small end reached';
+  like $r, qr/Array.* not fitting/i, 'limit at small end reached';
   is_deeply(&{"access_$t"}($s1, 4, 2, $form, 1), [[49,47,45],[50,48,46]], "2-dim accessor, stride=-2,1/array, wrapped, type=$t, at start");
   
   Numeric::LL_Array::create_handler("main::${t}0_incr", __FILE__);
@@ -279,3 +279,6 @@ is eval("use Numeric::LL_Array 'access_R'; 1"), undef, "missing accessor";
 is eval("use Numeric::LL_Array 'd0_nonesuch'; 1"), undef, "missing 0-arg";
 is eval("use Numeric::LL_Array 'd2d1_nonesuch'; 1"), undef, "missing 1-arg";
 is eval("use Numeric::LL_Array 'dd2d2_nonesuch'; 1"), undef, "missing 2-arg";
+
+is eval("use Numeric::LL_Array 'D2D1_sin'; 1") || '',
+   !Numeric::LL_Array::elementary_D_missing(), "sane elementary_D_missing()";

@@ -57,8 +57,7 @@ sub Poisson_4__4 ($$$$) {	# Spectrum normalized 4 --> -4
   # Add shift by (1,1): take shift by (0,1), and add to shift by (1,0)
   d2d1_plus_assign $$t_r, $$t_r, $w+2, 1, 2,
     [1,$w-2, $w, $h-2], [1,$w-2, $w, $h-2];
-  # The result is $w-2 x $w - 2 starting at offset (1,0)
-}
+}  # The result is $w-2 x $w - 2 starting at offset (1,0)
 
 sub Poisson_1_0 ($$$$) {	# Spectrum normalized 1 --> 0
   &Poisson_4__4;		# Second argument: temporary playground
@@ -121,7 +120,7 @@ sub permute3 ($) {	# known to behave well (is mixing) for 3^n
 # One gets sqrt(2)/pi (w-1)(h-1)/sqrt((w-1)^2 + (h-1)^2).
 
 my $pi = 4*atan2(1,1);
-# Asymptotic approximation; later we overwrite this (too optimistic!):
+# Asymptotic approximation; later we overwrite this (it is too optimistic!):
 my $min_eigen = $pi**2/8 * (1/($w-1)**2 + 1/($h-1)**2);
 my $N = 1 + int(1.32/2/sqrt($min_eigen));
 my $P = permute3($N);

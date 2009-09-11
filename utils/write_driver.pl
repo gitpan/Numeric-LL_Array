@@ -2,10 +2,15 @@
 use strict;
 use Config;
 
+my $no_sinl = ($ARGV[0] || '') eq '-no_sinl';
+my $has_sinl = !$no_sinl || 0;
+
 open OUT_ASS,  '> driver_ass.h'  or die;
 open OUT_0ARG, '> driver_0arg.h' or die;
 open OUT_1ARG, '> driver_1arg.h' or die;
 open OUT_2ARG, '> driver_2arg.h' or die;
+
+print OUT_0ARG "const int has_sinl = $has_sinl;\n\n";
 
 my(@list_ass, @list_0arg, @list_1arg, @list_2arg, $name);
 
@@ -107,6 +112,7 @@ for my $c (['!', 'negate'], ['-', 'flip_sign'], ['~', 'bit_complement'],
   my @allowed_types = keys %type;
   @allowed_types = grep !/[fdD]/, @allowed_types if $c->[0] eq '~';
   @allowed_types = grep /[fdD]/, @allowed_types if $c->[2];
+  @allowed_types = grep /[fd]/, @allowed_types if $c->[2] and $no_sinl;
   my (%c_suff, %c_pref);
   @c_pref{@allowed_types} = @c_suff{@allowed_types} = ('') x @allowed_types;
   $c_suff{D} = 'l' if $c->[2] or $c->[0] eq 'abs';
@@ -187,6 +193,7 @@ for my $c (['!', 'negate'], ['-', 'flip_sign'], ['~', 'bit_complement'],
 	   ['<<=', 'lshift_assign'], ['>>=', 'rshift_assign']) {
   my @allowed_types = keys %type;
   @allowed_types = grep !/[fdD]/, @allowed_types if $c->[0] =~ /~|<<|>>|%/;
+  @allowed_types = grep !/D/, @allowed_types if $no_sinl and $c->[0] =~ /^(pow|rint)/;
   my (%c_suff, %c_pref);
   @c_pref{@allowed_types} = @c_suff{@allowed_types} = ('') x @allowed_types;
   $c_suff{D} = 'l' if $c->[0] eq 'abs' or $c->[2];
@@ -227,6 +234,7 @@ for my $c (['+', 'plus'], ['-', 'minus'],
 	   ['<<', 'lshift'], ['>>', 'rshift']) {
   my @allowed_types = keys %type;
   @allowed_types = grep !/[fdD]/, @allowed_types if $c->[0] =~ /~|<<|>>|%/;
+  @allowed_types = grep !/D/, @allowed_types if $no_sinl and $c->[0] eq 'pow';
   for my $s1 (@allowed_types) {
     for my $s2 (@allowed_types) {
       next if $ss{$s1} > $ss{$s2} and $commutative{$c->[0]};

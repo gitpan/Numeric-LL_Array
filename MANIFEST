@@ -10,6 +10,7 @@ code_0arg.h
 code_accessor.h
 README
 utils/write_driver.pl
+utils/try.h
 driver_h.h
 driver_0arg.c
 driver_1arg.c
@@ -18,4 +19,10 @@ driver_ass.c
 t/Numeric-LL_Array.t
 lib/Numeric/LL_Array.pm
 examples/Poisson_solver_Chebyshev_relaxation.pl
+examples/Poisson_solver_multigrid.pl
+examples/HOWTO
+examples/test-up-from-cb-ok
+examples/test-down-from-cb-ok
+examples/test-down-to-cb-ok
+examples/test-up-to-cb-ok
 META.yml                                 Module meta-data (added by MakeMaker)

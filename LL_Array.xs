@@ -61,14 +61,18 @@ mInd2ind(int dim, const array_ind *ind, carray_form format)
 }
 
 int			/* lim is in bytes, start_i in len bytes */
-checkfit(IV lim, int len, int dim, const IV start_i, carray_form format)
+checkfit(IV lim, int len, int dim, const IV start_i, carray_form format_for_strides, carray_form format_for_sizes)
 {
   IV min = start_i, max = start_i, diff;
   int m = 0;
 
-  while (m < dim) {			/* We do not check overflow... */
-    diff = (format[m].count - 1) * format[m].stride;
-    if (format[m].stride > 0) {		/* diff > 0 */
+  while (m < dim) {			/* XXXX We do not check overflow... */
+    if (format_for_sizes[m].count == 0)
+      return 1;
+    else if (format_for_sizes[m].count < 0)
+	return 0;
+    diff = (format_for_sizes[m].count - 1) * format_for_strides[m].stride;
+    if (format_for_strides[m].stride > 0) {		/* diff > 0 */
       max += diff;	/* We assume count[m] >= 1 */
     } else if (min >= -diff) {		/* diff <= 0 here */
       min += diff;
@@ -86,7 +90,7 @@ checkfit_v(IV lim, int len, int dim, const array_ind *start, carray_form format)
 {
   IV start_i = mInd2ind(dim, start, format);
 
-  return checkfit(lim, len, dim, start_i, format);
+  return checkfit(lim, len, dim, start_i, format, format);
 }
 
 double
@@ -187,6 +191,8 @@ init_interface(char *perl_name, int arity, char *code, char *perl_file)
 #define duplicateTypes()	duplicate_types_s
 #define ptrdiff_t_size()	sizeof(ptrdiff_t)
 
+#define elementary_D_missing()	(!has_sinl)
+
 MODULE = Numeric::LL_Array		PACKAGE = Numeric::LL_Array
 
 double
@@ -270,8 +276,8 @@ __a_accessor__INTERFACE(p, offset = 0, dim = 0, format = Nullsv, sv = Nullsv, ke
        {
          carray_form f = sv_2_carray_form(dim, format);
 
-         if (!checkfit(sz, sizeof_elt, dim, offset, f))
-             croak("Array not fitting into a playground: "
+         if (!checkfit(sz, sizeof_elt, dim, offset, f, f))
+             croak("Array of negative size, or not fitting into a playground: "
 		   "sz=%ld, sizeof(elt)=%ld, arity=%ld, offset=%ld",
 		   (long)sz, (long)sizeof_elt, (long)dim, (long)offset);
          (f_ass_names_p[ix].fp)(aTHX_ av, p_s + sizeof_elt*offset, dim, f);
@@ -298,8 +304,8 @@ _0arg__INTERFACE(p, offset = 0, dim = 0, format = Nullsv)
        {
          carray_form f = sv_2_carray_form(dim, format);
 
-         if (!checkfit(sz, sizeof_elt, dim, offset, f))
-             croak("Array not fitting into a playground");
+         if (!checkfit(sz, sizeof_elt, dim, offset, f, f))
+             croak("Array of negative size, or not fitting into a playground");
          (f_0arg_names_p[ix].fp)(p_s + sizeof_elt*offset, dim, f);
        }
        XSRETURN_YES;
@@ -331,9 +337,9 @@ _1arg__INTERFACE(s_p, p, s_offset, offset, dim, sformat, format)
          carray_form f = sv_2_carray_form(dim, format);
          carray_form s_f = sv_2_carray_form(dim, sformat);
 
-         if (!checkfit(sz, sizeof_elt, dim, offset, f))
-             croak("Target array not fitting into a playground");
-         if (!checkfit(ssz, s_sizeof_elt, dim, s_offset, s_f))
+         if (!checkfit(sz, sizeof_elt, dim, offset, f, f))
+             croak("Target array of negative size, or not fitting into a playground");
+         if (!checkfit(ssz, s_sizeof_elt, dim, s_offset, s_f, f))
              croak("Source array not fitting into a playground");
          (f_1arg_names_p[ix].fp)(sp_s + s_sizeof_elt * s_offset, p_s + sizeof_elt*offset, dim, s_f, f);
        }
@@ -372,11 +378,11 @@ _2arg__INTERFACE(s1_p, s2_p, p, s1_offset, s2_offset, offset, dim, s1format, s2f
          carray_form s1_f = sv_2_carray_form(dim, s1format);
          carray_form s2_f = sv_2_carray_form(dim, s2format);
 
-         if (!checkfit(sz, sizeof_elt, dim, offset, f))
-             croak("Target array not fitting into a playground");
-         if (!checkfit(s1sz, s1_sizeof_elt, dim, s1_offset, s1_f))
+         if (!checkfit(sz, sizeof_elt, dim, offset, f, f))
+             croak("Target array of negative size, or not fitting into a playground");
+         if (!checkfit(s1sz, s1_sizeof_elt, dim, s1_offset, s1_f, f))
              croak("Source1 array not fitting into a playground");
-         if (!checkfit(s2sz, s2_sizeof_elt, dim, s2_offset, s2_f))
+         if (!checkfit(s2sz, s2_sizeof_elt, dim, s2_offset, s2_f, f))
              croak("Source2 array not fitting into a playground");
          (f_2arg_names_p[ix].fp)(s1p_s + s1_sizeof_elt * s1_offset,
 				 s2p_s + s2_sizeof_elt * s2_offset,
@@ -417,11 +423,11 @@ _2arg__INTERFACE_inverted(s2_p, s1_p, p, s2_offset, s1_offset, offset, dim, s2fo
          carray_form s1_f = sv_2_carray_form(dim, s1format);
          carray_form s2_f = sv_2_carray_form(dim, s2format);
 
-         if (!checkfit(sz, sizeof_elt, dim, offset, f))
-             croak("Target array not fitting into a playground");
-         if (!checkfit(s1sz, s1_sizeof_elt, dim, s1_offset, s1_f))
+         if (!checkfit(sz, sizeof_elt, dim, offset, f, f))
+             croak("Target array of negative size, or not fitting into a playground");
+         if (!checkfit(s1sz, s1_sizeof_elt, dim, s1_offset, s1_f, f))
              croak("Source1 array not fitting into a playground");
-         if (!checkfit(s2sz, s2_sizeof_elt, dim, s2_offset, s2_f))
+         if (!checkfit(s2sz, s2_sizeof_elt, dim, s2_offset, s2_f, f))
              croak("Source2 array not fitting into a playground");
          (f_2arg_names_p[ix].fp)(s1p_s + s1_sizeof_elt * s1_offset,
 				 s2p_s + s2_sizeof_elt * s2_offset,
@@ -441,3 +447,6 @@ duplicateTypes()
 
 int
 ptrdiff_t_size()
+
+int
+elementary_D_missing()

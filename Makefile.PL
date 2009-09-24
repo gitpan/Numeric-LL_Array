@@ -16,6 +16,9 @@ EOW
   warn "cc -E failed; I assume non-BSD, so not a completely broken long double...\n";
 }
 
+# We do not include perl.h from handlers
+my $has_q = $Config{d_quad} ? '-DMY_HAS_QUAD' : '';
+
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
 # the contents of the Makefile that is written.
 WriteMakefile(
@@ -26,7 +29,7 @@ WriteMakefile(
       (ABSTRACT_FROM  => 'lib/Numeric/LL_Array.pm', # retrieve abstract from module
        AUTHOR         => 'Ilya Zakharevich <ilyaz@cpan.org>') : ()),
     LIBS              => ['-lm'], # e.g., '-lm'
-    DEFINE            => '', # e.g., '-DHAVE_SOMETHING'
+    DEFINE            => $has_q, # e.g., '-DHAVE_SOMETHING'
     INC               => '-I.', # e.g., '-I. -I/usr/include/other'
 	# Un-comment this if you add C files to link with later:
     OBJECT            => '$(O_FILES)', # link all the C files too
@@ -42,15 +45,15 @@ PERLRUN = $^X
   '
 AUTOGEN_C_FILES = driver_ass.h driver_0arg.h driver_1arg.h driver_2arg.h
 
-LL_Array$(OBJ_EXT) : driver_h.h
+LL_Array$(OBJ_EXT) : driver_h.h signed_cmp_etc.h
 
-driver_ass$(OBJ_EXT) :  driver_h.h driver_ass.h  code_accessor.h
+driver_ass$(OBJ_EXT) :  driver_h.h signed_cmp_etc.h driver_ass.h  code_accessor.h
 
-driver_0arg$(OBJ_EXT) : driver_h.h driver_0arg.h code_0arg.h
+driver_0arg$(OBJ_EXT) : driver_h.h signed_cmp_etc.h driver_0arg.h code_0arg.h
 
-driver_1arg$(OBJ_EXT) : driver_h.h driver_1arg.h code_1arg.h
+driver_1arg$(OBJ_EXT) : driver_h.h signed_cmp_etc.h driver_1arg.h code_1arg.h
 
-driver_2arg$(OBJ_EXT) : driver_h.h driver_2arg.h code_2arg.h
+driver_2arg$(OBJ_EXT) : driver_h.h signed_cmp_etc.h driver_2arg.h code_2arg.h
 
 $(AUTOGEN_C_FILES): utils/write_driver.pl
 	$(PERLRUN) utils/write_driver.pl $(WRITE_DRIVER_OPT)

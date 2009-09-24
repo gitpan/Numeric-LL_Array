@@ -12,11 +12,13 @@ README
 utils/write_driver.pl
 utils/try.h
 driver_h.h
+signed_cmp_etc.h
 driver_0arg.c
 driver_1arg.c
 driver_2arg.c
 driver_ass.c 
 t/Numeric-LL_Array.t
+t/signed_cmps.t
 lib/Numeric/LL_Array.pm
 examples/Poisson_solver_Chebyshev_relaxation.pl
 examples/Poisson_solver_multigrid.pl

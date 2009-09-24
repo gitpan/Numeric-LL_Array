@@ -39,3 +39,10 @@ extern const unsigned char size_by_t[];
 extern const char duplicate_types_s[];
 
 extern void croak_on_invalid_entry(void);
+
+#ifdef MY_HAS_QUAD
+extern Quad_t my_llabs (Quad_t _n);
+#endif
+#define my_uabs(a)	(a)
+
+#include <signed_cmp_etc.h>

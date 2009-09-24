@@ -21,19 +21,34 @@ require Exporter;
 	
 );
 
-$VERSION = '0.05';
+$VERSION = '0.06';
 
 my %exported;
 sub import {
-  my($p, $f, $renew) = ( shift, (caller)[1] );
-  create_handler(__PACKAGE__ . "::$_", $f),
-    for grep !defined &{__PACKAGE__ . "::$_"}, @_;
+  my($p, $f, $tr, $P, @e, $renew) = ( shift, (caller)[1], {}, (caller(0))[0] );
+  for my $sym (@_) {
+    $tr{$1} = $2, $tr_c .= $1, $rx = qr/[$tr_c]/, next
+       if $sym =~ /^:(\w)=(\w)$/;
+    push @e, $sym and next if $sym =~ /^\d/;	# Somebody required a Version
+    my $Sym = $sym;		# Some values may be read-only
+    $Sym =~ s/(access_|packId_(?:star_)?)(.)$/ $1 . ($tr{$2} || $2) /e
+      or $Sym =~ s/^(.)(?=0_)/   $tr{$1} || $1 /e
+      or $Sym =~ s/^(.)2(.)(?=1_)/ ($tr{$1} || $1) . 2 . ($tr{$2} || $2) /e
+      or $Sym =~ s/^(.)(.)2(.)(?=2_)/
+       ($tr{$1} || $1) . ($tr{$2} || $2) . 2 . ($tr{$3} || $3) /e;
+    # warn +(caller(0))[0] . " p=$p, f=$f\n" if $Sym ne $sym;
+    create_handler(__PACKAGE__ . "::$Sym", $f)
+      unless defined &{__PACKAGE__ . "::$Sym"};
+    # For translated symbols, we could not go through Exporter
+    *{"$P\::$sym"} = \&{__PACKAGE__ . "::$Sym"}, next if $sym ne $Sym;
+    push @e, $Sym;	# Otherwise, go through Exporter - at least, for version
+  }
   defined &{__PACKAGE__ . "::$_"}
-    and ( $exported{$_}++ or ++$renew, push @EXPORT_OK, $_ ) for @_;
+    and ( $exported{$_}++ or ++$renew, push @EXPORT_OK, $_ ) for @e;
   # change to %EXPORT_OK ignored unless Exporter cache is invalidated
   undef %EXPORT if $renew;
   # warn "EXPORT_OK: @EXPORT_OK\n";
-  Exporter::export($p,(caller(0))[0],@_);
+  Exporter::export($p, $P, @e);
 }
 
 use strict;
@@ -76,9 +91,10 @@ eval <<EOE for keys %packId;
   sub packId_star_$_ () { "$packId{$_}*" }
 EOE
 
-my(@commutative, %invert) = qw(plus mult eq ne);
+my(@commutative, %invert, %comp) = qw(plus mult eq ne);
 @invert{@commutative} = @commutative;
 my %i = qw(gt lt ge le);
+@comp{%i, qw(eq ne)} = (1) x 6;
 @invert{keys %i} = values %i;
 
 my %t = qw(access -1 _0arg 0 _1arg 1 _2arg 2);
@@ -90,16 +106,19 @@ sub _create_handler ($$$$;@) {
   die "Unexpected number of arguments for `$how'"
     unless ($t >= 0 ? $t : 0) == @src;
   die "Flavor unexpected for `$how'" if defined $flavor and -1 == $t;
-  $_ = ($Numeric::LL_Array::translateTypes{$_} or die "Unknown type: $_")
+  $_ = ($Numeric::LL_Array::translateTypes{$_} or die "Unknown type: $_ in `$name'")
     for $targ, @src;
   if ($invert{$flavor || 0}
       and ($invert{$flavor} ne $flavor or
-	   $Numeric::LL_Array::typeSizes{$src[0]} > $Numeric::LL_Array::typeSizes{$src[1]})) {
+	   $Numeric::LL_Array::typeSizes{$src[0]} > $Numeric::LL_Array::typeSizes{$src[1]}
+	   or $Numeric::LL_Array::typeSizes{$src[0]} == $Numeric::LL_Array::typeSizes{$src[1]}
+	      and "$src[0]$src[1]" =~ /[CSILQ][csilq]/)) {
     # Only one of the equivalent flavors is present as a C function
     @src = @src[1,0];
     $flavor = $invert{$flavor};
     $tt = -$t;
   }
+  $targ = lc $targ if $comp{$flavor || 0} and $targ =~ /[CSILQ]/;
   my $types = join '', map chr $Numeric::LL_Array::typeSizes{$_}, $targ, @src;
   my $src = join '', @src;
   if (-1 == $t) {
@@ -308,7 +327,8 @@ corresponding C or Perl operator is put below, when it is different):
 
 (If C operation takes an argument, we do C<target = OP(target)>,
 otherwise C<target = OP>.) For example, to increment C<signed char>
-array, one uses the function named C<c0_incr>.  (The operations in the
+array, one uses the function named C<c0_incr>; to assign -1 to
+all elements of long double array, use C<D0_m1>.  (The operations in the
 second row (except abs) are implemented only for floating point types.)
 
 Perl functions which use one array ("source") to modify another ("target")
@@ -316,22 +336,21 @@ are named <S2T1_type>; here C<T> is a letter encoding the target flavor, and
 C<S> encodes the source flavor.  C<type> is the identifier describing the
 semantic of the function:
 
-  cos sin tan acos asin atan exp log log10 sqrt ceil floor trunc rint
+  cos sin tan acos asin atan exp
 
-(only for floating point types, and with target type equal to source type),
+(only for floating point types, and only with target type equal to source type),
 or C<assign> for assignment (possibly with type conversion), or
 
   plus_assign   minus_assign   mult_assign   div_assign   remainder_assign
   +=            -=             *=            /=           %=
 
-  lshift_assign  rshift_assign  pow_assign
-  <<=            >>=            **=
+  lshift_assign  rshift_assign  pow_assign   bitand_assign bit(x)or_assign
+  <<=            >>=            **=          &=            |=  ^=
 
-  negate flip_sign bit_complement abs ceil floor trunc rint
+  negate flip_sign bit_complement ne0 abs ceil floor trunc rint log log10 sqrt
 
-(The shift operations are currently supported only for non-floating
-point types.  The C<ceil floor trunc rint> are supported only for
-floating-point source types.)
+(The C<ceil floor trunc rint> are supported only for floating-point source
+types.)  C<ne0> checks for a value to be non-0.
 
 For example, to convert C<unsigned long> array to a C<long double> array,
 one uses the function named C<L2D1_assign>.
@@ -343,18 +362,53 @@ flavors correspondingly.  C<type> is the identifier describing the
 semantic of the function:
 
   plus minus mult div remainder pow lt gt le ge eq ne lshift rshift
+  bitand bitor bitxor
+
+Operations C<lt gt le ge eq ne> work as "in mathematics", not "as in C":
+a negative number is less than a non-negative, even if one type is signed,
+another unsigned.  (However, currently a comparison of C<long> and C<double>
+goes through automatic C conversion C<long -E<gt> double>.  On some machines
+long has more bits than than mantissa of a double, so this includes rounding
+a C<long> to the nearest fitting C<double>.)
 
 One can also use C<sproduct> for the operation C<target += source1 *
 source2>.  The target type must coincide with one of the source types,
-except for C<mult> and C<sproduct>, where additionally implemented
-"wider types" out of C<f d D q Q> are supported.
+except for C<mult> and C<sproduct>, where additionally "wider types" 
+(implemented types in C<f d D q Q>) are supported, and comparison operations
+C<lt gt le ge eq ne>, where the target may additionally be of any integer type.
+
+If source1 or target are floating point, C<lshift> and C<rshift> operations
+accept negative arguments; additionally, no truncation is performed (including
+negative C<lshift> and positive C<rshift>).  Likewise for C<lshift_assign>,
+C<rshift_assign>.
 
 For example, to add C<signed short> array and C<unsigned int>
 and write the result to a C<unsigned long> array, one uses the function named
-C<sI2L2_add>.
+C<sI2L2_add>.  (Read this as I<signed short and unsigned integer TO unsigned
+long: add[ition] [with 2 sources]>.)
 
-Note that the number before underscore is the number of "source" arrays,
-and the flavors of source arrays preceed the number C<2> in the name.
+In short: the number before underscore is the number of "source" arrays,
+and the flavors of source arrays preceed the (first) number C<2> in the name.
+
+=head2 Order of operations
+
+When an operation is performed, the cycle is run over the elements of the
+array; the innermost loop is w.r.t. the first index (i.e., the first of
+strides and the first of limits), and outermost is w.r.t. the last index.
+
+The start element of the array is processed first, then the order of elements
+processed is governed by the strides.  For example, suppose that $arr with 1
+index consists of 0s; let $arr_f be format of $arr but with 1 less element,
+$off is the offset of the next element of $arr (=stride), and $ones consists
+of 1s (with format $ones_f), then
+
+  sS2s2_add($arr, $ones, $arr, 0, 0, $offset, $dim, $arr_f, $ones_f, $arr_f);
+
+will initialize $arr so that C<n>th element is equal to C<n>.  Indeed, the
+target is $arr with offset 1; so the first addition will assign 0th element + 1
+to the 1st element of $arr; after this the first 2 elements of $arr are
+"correctly" initialized to 0 and 1.  The second addition will assign 1st
+element + 1 to the 2nd element, so it would become 2, etc.
 
 =head2 EXPORT
 
@@ -371,8 +425,20 @@ here C<T> is a flavor specifier for a type used by this module.
 The functions on the left return the letter, on the right return a letter
 followed by C<*>.  For example, packId_L() would return C<L!> on newer
 Perls, and a suitable substitute on the older ones.  The functions on
-top return the pack() argument for working with offsets and strides in the
+top return the pack() letter(s) for pack()ing the offsets and strides in the
 array.
+
+To simplify developing code which works with different numeric types,
+one can create I<aliases> for types by putting C<:T=t> into import list.
+After this word, the imported symbols may have C<T> put instead of C<t>.  E.g.,
+
+  use Numeric::LL_Array qw( :X=d access_X XX2X2_add packId_X );
+  ...
+  XX2X2_add(...);
+
+(After this, use only the type C<X> to access doubles.  If you want to replace
+C<double>s by C<float>s, all you need to do is to change one letter: make
+alias into C<:X=f>.)
 
 Additionally, functions C<packId($t)>, C<packId_star($t)> are
 available; they take type letter (or C<'format'>) as a parameter.
@@ -502,25 +568,30 @@ But these operations are done in C, where they are much cheaper than in Perl.)
 
 =head1 BUGS
 
-NEED: product with wider target; same for lshift...
-	(need src casts...)
-NEED: modf, ldexp, frexp (all take *l), cbrt...
-NEED: min/max ???  min_assign???
-NEED: How to find first elt which breaks conditions (as in a[n+1] == a[n]+1???
-NEED: more intelligent choice of accessors for q/Q and D...
-NEED: accessor to long double max-aligned (to 16 when size is between 8 and 16)
-NEED: abs() for long long?
-NEED: signed vs unsigned comparison? char-vs-quad comparison? cmp?
-NEED: pseudo-flavor: k-th coordinate of the index
-NEED: log log10 sqrt with non-floating point targets
-NEED: bitwise operators, and assignment flavors
-NEED: parametrized import, as in qw(:x=d access_x)
-NEED: check for overflow of ptrdiff_t in checkfit()
+ NEED: product with wider target; same for lshift...
+         (need src casts...)
+ NEED: modf frexp (2 targets? both take *l), cbrt (detect l-variant???)...
+ NEED: min/max ???  min_assign??? argmin() ?
+ NEED: How to find first elt which breaks conditions (as in a[n+1] == a[n]+1???
+ NEED: more intelligent choice of accessors for q/Q and D...
+ NEED: accessor to long double max-aligned (to 16 when size is between 8 and 16)
+ NEED: long vs double comparison? char-vs-quad comparison? cmp?
+ NEED: pseudo-flavor: k-th coordinate of the index (or a linear combination?)
+ NEED: All flavors of FFT
+ NEED: Indirect access (use value of one array as index in another)
 
 BSD misses many C<long double> APIs (elementary functions, rint() and C<**>).
 So when deciding whether one wants to do operations over C<long double>s,
 one should either check for presence of the needed functions, or check
 return value of elementary_D_missing().
+
+In C Integer Conversion to signed type and floating to integer
+conversion are implementation-specific unless the (truncated) value can be
+represented exactly.  Hence, e.g., operations with C<unsigned int> and C<signed
+int> targets need different C implementations (they do not necessarily differ
+by integer conversion, which is a NOP on in-memory representations).  Which
+means that we need C code to all all the flavors, and our (autogenerated) C
+code is quite bulky and takes a lot of time to compile.
 
 =head1 AUTHOR
 
@@ -544,3 +615,44 @@ Possible layout of an object:
    RV:		playground
    IV:		flavor, dim
    PV:		format
+
+Need also a region of playground one can write when targetting this
+value.
+
+This may give a significant slowdown in the case of smallish arrays.
+Then maybe a "precompile" step may be useful: another class; operations
+over this class do not do calculations, but just name/type resolution,
+and bound checks.  While operations are performed, this information
+is stored in a "program buffer".  Then one can invoke the "program
+buffer" (assumingly inside a cycle, otherwise there is no point
+in doing preprocessing in advance); this should suit iterative methods...
+
+Tentative example of how it might be accessed:
+
+  my $prog = new Numeric::LL_Program_Array;
+  my $playground = ...;
+  my $p = new Numeric::Array_for_Program $prog, $playground, 'd', $min, $max,
+					 $start, $dims = [1, 2*$N+1, 1];
+  my $one = $p->subarray(0, $dims = [1, $N, 0]); # dim=1, off=0, stride = 0
+  my $a   = $p->subarray(1, $dims = [1, $N, 1]); # dim=1, off=1, stride = 1
+  my $tmp = $p->subarray($N+1, $dims = [1, $N, 1]); # after $a
+
+  my $one1 = $one->subarray(0, $dims = [1, 1,  0]); # occupies the same place
+  $one1->assign_1;		# assigns $one too
+
+  my $a00 = $a->subarray(0, $dims = [1, 1, 1]); # The first element
+  $a00->assign_0;
+  my $a0 = $a->subarray(0, $dims = [1, $N-1, 1]); # all but last element
+  my $a1 = $a->subarray(1, $dims = [1, $N-1, 1]); # all but first element
+  $a1->assign_add($one, $a0);	# Now $a has elements 0..$N-1
+
+  $prog->invoke_and_clean;	# Execute once, forget, start accumulate again
+
+  $tmp->assign_tan($a);
+  $a->subtract_assign($tmp);
+
+  $prog->invoke for 0..19;	# run 20 iterations of x = x - tan(x) 
+  print($a);
+
+(need also flavors of subarray which modify $min/$max?).  Note that subarray()
+does not touch the playground, only the dim/offsets/strides data.

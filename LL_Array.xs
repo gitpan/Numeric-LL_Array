@@ -12,6 +12,13 @@ croak_on_invalid_entry(void)
   croak("An invalid entry in dispatch table reached; a naked INTERFACE XSUB exposed?");
 }
 
+#ifdef MY_HAS_QUAD
+Quad_t
+my_llabs (Quad_t _n) {
+  return (_n < 0 ? -_n : _n);
+}
+#endif
+
 carray_form
 sv_2_carray_form(int dim, SV *sv)
 {
@@ -63,24 +70,36 @@ mInd2ind(int dim, const array_ind *ind, carray_form format)
 int			/* lim is in bytes, start_i in len bytes */
 checkfit(IV lim, int len, int dim, const IV start_i, carray_form format_for_strides, carray_form format_for_sizes)
 {
-  IV min = start_i, max = start_i, diff;
+  IV min = start_i, max = start_i, diff, omax, omin;
   int m = 0;
 
   while (m < dim) {			/* XXXX We do not check overflow... */
     if (format_for_sizes[m].count == 0)
       return 1;
+    else if (format_for_sizes[m].count == 1)
+      goto do_incr;
     else if (format_for_sizes[m].count < 0)
-	return 0;
+      return 0;
     diff = (format_for_sizes[m].count - 1) * format_for_strides[m].stride;
+    if (diff <= 0 && format_for_strides[m].stride > 0
+	|| diff >= 0 && format_for_strides[m].stride < 0)	/* Overflow */
+      return 0;
     if (format_for_strides[m].stride > 0) {		/* diff > 0 */
+      omax = max;
       max += diff;	/* We assume count[m] >= 1 */
+      if (max < omax)	/* Overflow */
+	return 0;
     } else if (min >= -diff) {		/* diff <= 0 here */
+      omin = min;
       min += diff;
+      if (min > omin)	/* Overflow */
+	return 0;
     } else
       return 0;
+   do_incr:
     m++;
   }
-  if (max * len < lim)
+  if (max * (double)len < lim)
     return 1;
   return 0;
 }
@@ -270,7 +289,7 @@ __a_accessor__INTERFACE(p, offset = 0, dim = 0, format = Nullsv, sv = Nullsv, ke
        } else
 	   croak("av is not an array reference");
        if (dim && !format)
-	   croak("format should be present if dim is 0");
+	   croak("format should be present if dim > 0");
        p_s = SvPV(p, sz);
        PUTBACK;
        {
@@ -299,7 +318,7 @@ _0arg__INTERFACE(p, offset = 0, dim = 0, format = Nullsv)
        int sizeof_elt = f_0arg_names_p[ix].codes_name[0];
 
        if (dim && !format)
-	   croak("format should be present if dim is 0");
+	   croak("format should be present if dim > 0");
        p_s = SvPV(p, sz);
        {
          carray_form f = sv_2_carray_form(dim, format);
@@ -330,7 +349,7 @@ _1arg__INTERFACE(s_p, p, s_offset, offset, dim, sformat, format)
        int s_sizeof_elt = f_1arg_names_p[ix].codes_name[1];
 
        if (dim && !(format && sformat))
-	   croak("format should be present if dim is 0");
+	   croak("format should be present if dim > 0");
        p_s = SvPV(p, sz);
        sp_s = SvPV(s_p, ssz);
        {
@@ -369,7 +388,7 @@ _2arg__INTERFACE(s1_p, s2_p, p, s1_offset, s2_offset, offset, dim, s1format, s2f
        int s2_sizeof_elt = f_2arg_names_p[ix].codes_name[2];
 
        if (dim && !(format && s1format && s2format))
-	   croak("format should be present if dim is 0");
+	   croak("format should be present if dim > 0");
        p_s = SvPV(p, sz);
        s1p_s = SvPV(s1_p, s1sz);
        s2p_s = SvPV(s2_p, s2sz);
@@ -414,7 +433,7 @@ _2arg__INTERFACE_inverted(s2_p, s1_p, p, s2_offset, s1_offset, offset, dim, s2fo
        int s2_sizeof_elt = f_2arg_names_p[ix].codes_name[2];
 
        if (dim && !(format && s1format && s2format))
-	   croak("format should be present if dim is 0");
+	   croak("format should be present if dim > 0");
        p_s = SvPV(p, sz);
        s1p_s = SvPV(s1_p, s1sz);
        s2p_s = SvPV(s2_p, s2sz);

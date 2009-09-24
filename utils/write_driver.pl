@@ -106,18 +106,21 @@ EOP
 # do 1-arg calls inplace, and, for floating-point, with source
 
 for my $c (['!', 'negate'], ['-', 'flip_sign'], ['~', 'bit_complement'],
-	   map(["RET_${_}__", $_], qw(0 1 2 m1)),
-	   ['abs', 'abs'],
-	   map [$_, $_, 1], qw(cos sin tan acos asin atan exp log log10 sqrt ceil floor trunc rint)) {
+	   map(["RET_${_}__", $_], qw(0 1 2 m1)), ['my_ne0', 'ne0'],
+	   ['abs', 'abs', 0],
+	   map([$_, $_, 0], qw(log log10 sqrt)),	# Allow int args
+	   map([$_, $_, 1], qw(cos sin tan acos asin atan exp ceil floor trunc rint)),) {
   my @allowed_types = keys %type;
   @allowed_types = grep !/[fdD]/, @allowed_types if $c->[0] eq '~';
   @allowed_types = grep /[fdD]/, @allowed_types if $c->[2];
-  @allowed_types = grep /[fd]/, @allowed_types if $c->[2] and $no_sinl;
+  @allowed_types = grep !/D/, @allowed_types if defined $c->[2] and $no_sinl;
   my (%c_suff, %c_pref);
   @c_pref{@allowed_types} = @c_suff{@allowed_types} = ('') x @allowed_types;
-  $c_suff{D} = 'l' if $c->[2] or $c->[0] eq 'abs';
+  $c_suff{D} = 'l' if defined $c->[2];
   $c->[0] eq 'abs' and $c_pref{$_} = 'f' for qw(f d D);
-  $c->[0] eq 'abs' and $c_pref{$_} = 'l' for qw(l L);
+  $c->[0] eq 'abs' and $c_pref{$_} = 'l' for qw(l);
+  $c->[0] eq 'abs' and $c_pref{$_} = 'my_ll' for qw(q);
+  $c->[0] eq 'abs' and $c_pref{$_} = 'my_u' for qw(C S I L Q);
   $name = "${_}0_$c->[1]", push(@list_0arg, [$name, $_]),
     print OUT_0ARG <<EOP for @allowed_types;
 #define TARG_ELT_TYPE		$type{$_}
@@ -183,29 +186,37 @@ EOP
   }
 }
 
+my %fp_vars = qw( << ldexp >> ldexp_neg );
+
 # other 1-arg calls (with possible source and target types)
 for my $c (['!', 'negate'], ['-', 'flip_sign'], ['~', 'bit_complement'],
-	   ['abs', 'abs'],
+	   ['abs', 'abs', 0], ['my_ne0', 'ne0'],
 	   (map [$_, $_, 1], qw(ceil floor trunc rint)),
+	   map([$_, $_, 0], qw(log log10 sqrt)),	# Allow int args
 	   ['+=', 'plus_assign'], ['-=', 'minus_assign'],
 	   ['*=', 'mult_assign'], ['/=', 'div_assign'],
+	   ['|=', 'bitor_assign'], ['&=', 'bitand_assign'], ['^=', 'bitxor_assign'],
 	   ['%=', 'remainder_assign'], ['pow((targ), ', 'pow_assign'],
 	   ['<<=', 'lshift_assign'], ['>>=', 'rshift_assign']) {
   my @allowed_types = keys %type;
-  @allowed_types = grep !/[fdD]/, @allowed_types if $c->[0] =~ /~|<<|>>|%/;
-  @allowed_types = grep !/D/, @allowed_types if $no_sinl and $c->[0] =~ /^(pow|rint)/;
+  @allowed_types = grep !/[fdD]/, @allowed_types if $c->[0] =~ /[~%|&^]/;
+  @allowed_types = grep !/D/, @allowed_types if $no_sinl and $c->[0] =~ /^(pow|rint|log|sqrt)/;
   my (%c_suff, %c_pref);
   @c_pref{@allowed_types} = @c_suff{@allowed_types} = ('') x @allowed_types;
-  $c_suff{D} = 'l' if $c->[0] eq 'abs' or $c->[2];
+  $c_suff{D} = 'l' if defined $c->[2];
   $c->[0] eq 'abs' and $c_pref{$_} = 'f' for qw(f d D);
-  $c->[0] eq 'abs' and $c_pref{$_} = 'l' for qw(l L);
-  my $eq = ($c->[0] =~ s/=$/= /) ? '' : '=';
-  my $trailer = ($c->[0] =~ /\(/) ? ')' : '';
+  $c->[0] eq 'abs' and $c_pref{$_} = 'l' for qw(l);
+  $c->[0] eq 'abs' and $c_pref{$_} = 'my_ll' for qw(q);
+  $c->[0] eq 'abs' and $c_pref{$_} = 'my_u' for qw(C S I L Q);
   for my $s (@allowed_types) {
+    next if $s =~ /[fdD]/ and $c->[0] =~ /<<|>>/;
     for my $t (@allowed_types) {
       next if $c->[2] and ($s eq $t or $s !~ /[fdD]/);	# $s==$t: done earlier
-      my $ccc = $c->[0];
-      $ccc =~ s/pow/powl/ if "$s$t" =~ /D/;
+      (my $_c = my $ccc = $c->[0]) =~ s/=//;
+      $ccc = "$fp_vars{$_c}((targ), " if $fp_vars{$_c} and "$s$t" =~ /[fdD]/;
+      $ccc =~ s/^(pow|ldexp(_neg)?)/${1}l/ if "$s$t" =~ /D/;
+      my $eq = ($ccc =~ s/=$/= /) ? '' : '=';
+      my $trailer = ($ccc =~ /\(/) ? ')' : '';
       $name = "${s}2${t}1_$c->[1]", push(@list_1arg, [$name, $t, $s]),
 	print OUT_1ARG <<EOP;
 #define SOURCE_ELT_TYPE		$type{$s}
@@ -223,25 +234,30 @@ EOP
   }
 }
 
-my(@commutative, %commutative) = qw(+ * == !=);
+my(@commutative, %commutative) = qw(+ * == != my_eq my_ne);
 @commutative{@commutative} = @commutative;
 
 # 2-arg calls (with possible source and target types)
 for my $c (['+', 'plus'], ['-', 'minus'],
 	   ['*', 'mult'], ['/', 'div'], ['*', 'sproduct'],
+	   ['|', 'bitor'], ['&', 'bitand'], ['^', 'bitxor'],
 	   ['%', 'remainder'], ['pow', 'pow'],
-	   ['<', 'lt'], ['<=', 'le'], ['==', 'eq'], ['!=', 'ne'],
+	   (map ["my_$_", $_], qw( lt le eq ne )),
+	   # ['<', 'lt'], ['<=', 'le'], ['==', 'eq'], ['!=', 'ne'],
 	   ['<<', 'lshift'], ['>>', 'rshift']) {
   my @allowed_types = keys %type;
-  @allowed_types = grep !/[fdD]/, @allowed_types if $c->[0] =~ /~|<<|>>|%/;
+  @allowed_types = grep !/[fdD]/, @allowed_types if $c->[0] =~ /[~%|&^]/;
   @allowed_types = grep !/D/, @allowed_types if $no_sinl and $c->[0] eq 'pow';
   for my $s1 (@allowed_types) {
     for my $s2 (@allowed_types) {
-      next if $ss{$s1} > $ss{$s2} and $commutative{$c->[0]};
+      next if ($ss{$s1} > $ss{$s2}
+	       or $ss{$s1} == $ss{$s2} and "$s1$s2" =~ /[CSILQ][csilq]/)
+	and $commutative{$c->[0]};
+      next if $s2 =~ /[fdD]/ and $c->[0] =~ /<<|>>/;
       my %t;  $t{$s1}++; $t{$s2}++;
       if ($c->[0] eq '*') {{	# Wider output for mult/sproduct
 	$t{$_}++ for grep $type{$_}, qw(f d D q Q);
-	last;			# too slow compile otherwise???
+	last;			# compile too slow otherwise???
 	if ("$s1$s2" =~ /cs/) {
 	  $t{$_}++ for qw(l L i I);
 	}
@@ -255,10 +271,18 @@ for my $c (['+', 'plus'], ['-', 'minus'],
 	  $t{$_}++ for qw(l L);
 	}
       }}
+      if ($c->[0] =~ /^my_/) {	# Any-signed-int output for comparisons
+	$t{$_}++ for grep $type{$_}, qw(c s i l q);
+        delete $t{$_} for qw(C S I L Q);
+      }				# Increases the DLL size 1.5 times???
       for my $t (keys %t) {
         my ($mid, $pre) = ($c->[0], '');
-	($mid, $pre) = (',', $mid) if $mid =~ /pow/;
-        $pre =~ s/pow/powl/ if "$s1$s2$t" =~ /D/;
+	($mid, $pre) = (',', $mid) if $mid =~ /^\w+$/;
+	($mid, $pre) = (',', $fp_vars{$mid})
+	  if $fp_vars{$mid} and "$s1$t" =~ /[fdD]/;
+        $pre =~ s/^(pow|ldexp(_neg)?)/${1}l/   if "$s1$s2$t" =~ /D/;
+	$pre =~ s/^(my_\w\w)$/$1_su/ if "$s1$s2" =~ /^[csilq][CSILQ]$/;
+	$pre =~ s/^(my_\w\w)$/$1_us/ if "$s1$s2" =~ /^[CSILQ][csilq]$/;
 	my $preassign = ($c->[1] eq 'sproduct') ? '+' : '';
 	$name = "${s1}${s2}2${t}2_$c->[1]", push(@list_2arg, [$name, $t, $s1, $s2]),
 	  print OUT_2ARG <<EOP;

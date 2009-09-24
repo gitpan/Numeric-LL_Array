@@ -6,13 +6,11 @@ Revision history for Perl extension Numeric::LL_Array.
 
 	First (stubbish) accessor works.
 
-0.02
-	Regularization of internal typing/field naming system.
+0.02	Regularization of internal typing/field naming system.
 	Real accessors work.
 	0-arg methods work.
 
-0.03
-	1-arg, 2-arg methods implemented (minimally tested only).
+0.03	1-arg, 2-arg methods implemented (minimally tested only).
 	Semantic of playgrounds, strides and formats documented.
 	Naming convention of the functions documented.
 	The 0, invalid, entry in the dispatch table modified to cause
@@ -24,15 +22,13 @@ Revision history for Perl extension Numeric::LL_Array.
 	Clean headers for types and unused functions.
 	Check with Perl v>= 5.00553, and with threads.
 
-0.04
-	Lists of supported handlers provided.
+0.04	Lists of supported handlers provided.
 	Remove defaults for arguments in 0- 1- 2-arg handlers.
 	Misprint in lookup of 1-arg handlers.
 	Hint about passing by reference.
 	examples/Poisson_solver_Chebyshev_relaxation.pl
 
-0.05
-	checkfit() did not check for negative (and 0!) counts
+0.05	checkfit() did not check for negative (and 0!) counts
 	checkfit() did not match semantic of source sizes
 	Beginning of framework for 2dim multi-grid (does not treat
 		boundary conditions well enough, so convergence is slower
@@ -42,3 +38,18 @@ Revision history for Perl extension Numeric::LL_Array.
 		if elementary_D_missing() is TRUE; currently
   cos sin tan acos asin atan exp log log10 sqrt ceil floor trunc rint pow.
 	Hints on implementation of convolution.
+
+0.06	Signed vs unsigned comparison fixed from C semantic to math semantic.
+	Test script for comparison added.
+	Minor updates to docs (including future directions).
+	Results of comparison operators (le ge lt gt eq ne) may be any integer
+		type (may increase the DLL size by 20%).
+	Parametrized import, as in qw(:x=d access_x).
+	abs() for long long and unsigned types
+	Compress code slightly more for symmetric ops - for equal size of
+		operands, prefer the first one to be signed.
+	Check for overflow of ptrdiff_t in checkfit()
+	use ldexp[l] for <<, <<=, >>, >>= for floating-point source1 or target
+	bitwise operators, and assignment flavors
+	log log10 sqrt with non-floating point targets implemented
+	ne0 (meaning a != 0) implemented

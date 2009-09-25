@@ -84,8 +84,10 @@ EOP
 #sub protect_q ($) {my $t = shift; $t =~ /q/i ? ('#ifdef HAVE_QUAD', "#endif") : ('' '')}
 #my($protect_q, $unprotect_q) = ('','');
 
+my @use_types = grep $type{$_}, split //, 'cCsSiIlLfdDqQ';	# A particular order
+
 # accessors
-for my $t (keys %type) {
+for my $t (@use_types) {
   my $create = ($t =~ /[fdDqQ]/) ? 'newSVnv' 
     : (($t =~ /[CSIL]/) ? 'newSVuv' : 'newSViv');
 
@@ -110,7 +112,7 @@ for my $c (['!', 'negate'], ['-', 'flip_sign'], ['~', 'bit_complement'],
 	   ['abs', 'abs', 0],
 	   map([$_, $_, 0], qw(log log10 sqrt)),	# Allow int args
 	   map([$_, $_, 1], qw(cos sin tan acos asin atan exp ceil floor trunc rint)),) {
-  my @allowed_types = keys %type;
+  my @allowed_types = @use_types;
   @allowed_types = grep !/[fdD]/, @allowed_types if $c->[0] eq '~';
   @allowed_types = grep /[fdD]/, @allowed_types if $c->[2];
   @allowed_types = grep !/D/, @allowed_types if defined $c->[2] and $no_sinl;
@@ -152,7 +154,7 @@ EOP
 # C modifiers (as 0-arg)
 for my $c (['++', 'incr'], ['--', 'decr']) {
   $name = "${_}0_$c->[1]", push(@list_0arg, [$name, $_]),
-    print OUT_0ARG <<EOP for keys %type;
+    print OUT_0ARG <<EOP for @use_types;
 #define TARG_ELT_TYPE		$type{$_}
 #define DO_0OP(targ)		$c->[0](targ)
 #define THIS_OP_NAME		$name
@@ -165,8 +167,8 @@ EOP
 }
 
 # conversion calls (1-arg)
-for my $s (keys %type) {
-  for my $t (keys %type) {
+for my $s (@use_types) {
+  for my $t (@use_types) {
     my $mid_convert = '';
     $mid_convert = '(int)' if "$s$t" =~ /[cs][fdD]|[fdD][cs]/; # Needed?
     $mid_convert = '(unsigned int)' if "$s$t" =~ /[CS][fdD]|[fdD][CS]/; # Needed?
@@ -190,17 +192,18 @@ my %fp_vars = qw( << ldexp >> ldexp_neg );
 
 # other 1-arg calls (with possible source and target types)
 for my $c (['!', 'negate'], ['-', 'flip_sign'], ['~', 'bit_complement'],
-	   ['abs', 'abs', 0], ['my_ne0', 'ne0'],
+	   ['my_ne0', 'ne0'],
 	   (map [$_, $_, 1], qw(ceil floor trunc rint)),
-	   map([$_, $_, 0], qw(log log10 sqrt)),	# Allow int args
+	   map([$_, $_, 0], qw(log log10 sqrt abs)),	# Allow int args
 	   ['+=', 'plus_assign'], ['-=', 'minus_assign'],
 	   ['*=', 'mult_assign'], ['/=', 'div_assign'],
 	   ['|=', 'bitor_assign'], ['&=', 'bitand_assign'], ['^=', 'bitxor_assign'],
 	   ['%=', 'remainder_assign'], ['pow((targ), ', 'pow_assign'],
 	   ['<<=', 'lshift_assign'], ['>>=', 'rshift_assign']) {
-  my @allowed_types = keys %type;
+  my @allowed_types = @use_types;
   @allowed_types = grep !/[fdD]/, @allowed_types if $c->[0] =~ /[~%|&^]/;
-  @allowed_types = grep !/D/, @allowed_types if $no_sinl and $c->[0] =~ /^(pow|rint|log|sqrt)/;
+  @allowed_types = grep !/D/, @allowed_types
+    if $no_sinl and ($c->[0] =~ /^pow/ or defined $c->[2]);
   my (%c_suff, %c_pref);
   @c_pref{@allowed_types} = @c_suff{@allowed_types} = ('') x @allowed_types;
   $c_suff{D} = 'l' if defined $c->[2];
@@ -245,7 +248,7 @@ for my $c (['+', 'plus'], ['-', 'minus'],
 	   (map ["my_$_", $_], qw( lt le eq ne )),
 	   # ['<', 'lt'], ['<=', 'le'], ['==', 'eq'], ['!=', 'ne'],
 	   ['<<', 'lshift'], ['>>', 'rshift']) {
-  my @allowed_types = keys %type;
+  my @allowed_types = @use_types;
   @allowed_types = grep !/[fdD]/, @allowed_types if $c->[0] =~ /[~%|&^]/;
   @allowed_types = grep !/D/, @allowed_types if $no_sinl and $c->[0] eq 'pow';
   for my $s1 (@allowed_types) {

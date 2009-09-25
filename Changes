@@ -53,3 +53,7 @@ Revision history for Perl extension Numeric::LL_Array.
 	bitwise operators, and assignment flavors
 	log log10 sqrt with non-floating point targets implemented
 	ne0 (meaning a != 0) implemented
+
+0.07	Protect ceil/trunc/rint/abs too against missing long double flavors.
+	Touch version in .pm file.
+	Sort C functions in a particular order.

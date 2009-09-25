@@ -21,7 +21,7 @@ require Exporter;
 	
 );
 
-$VERSION = '0.06';
+$VERSION = '0.07';
 
 my %exported;
 sub import {
@@ -579,6 +579,10 @@ But these operations are done in C, where they are much cheaper than in Perl.)
  NEED: pseudo-flavor: k-th coordinate of the index (or a linear combination?)
  NEED: All flavors of FFT
  NEED: Indirect access (use value of one array as index in another)
+ NEED: A lot of testers run out of memory already compiling 1arg; 2arg is
+	twice as large.  To split them, we need also to split the logic
+	to look up the tables...
+		(Might find_in_ftable() (return (index << 2) | which_table)?)
 
 BSD misses many C<long double> APIs (elementary functions, rint() and C<**>).
 So when deciding whether one wants to do operations over C<long double>s,

@@ -57,3 +57,9 @@ Revision history for Perl extension Numeric::LL_Array.
 0.07	Protect ceil/trunc/rint/abs too against missing long double flavors.
 	Touch version in .pm file.
 	Sort C functions in a particular order.
+
+0.08	Use '--miss=LIST' as argument to write_driver.pl.
+	Support rint(), trunc(), cbrtl(), _cbrtl() in LIST
+	Touch version in .pm file.
+	Infrastructure in XS to support handler C files split in smaller chunks.
+	modf, frexp added (with source2 playing the role of the 2nd target).

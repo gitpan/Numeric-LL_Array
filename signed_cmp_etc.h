@@ -19,3 +19,7 @@
 #define ldexp_negl(a,b)	ldexpl((a), -(b))
 
 #define my_ne0(a)	(0 != (a))
+
+		/* how is one of: EMPTY, _su, _us.  1s are to equalize return type */
+#define assign_min(how,a,b,c)	(my_le ## how((a),(b)) ? (void)((c) = (a)) : (void)((c) = (b)))
+#define assign_max(how,a,b,c)	(my_le ## how((a),(b)) ? (void)((c) = (b)) : (void)((c) = (a)))

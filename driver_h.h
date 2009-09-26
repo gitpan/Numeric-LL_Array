@@ -16,17 +16,22 @@ typedef void (*f_0arg_p)(char *to_s, int dim, carray_form to_form);
 typedef void (*f_1arg_p)(const char *from_s, char *to_s, int dim, carray_form from_form, carray_form to_form);
 typedef void (*f_2arg_p)(const char *from1_s, const char *from2_s, char *to_s,
  int dim, carray_form from1_form, carray_form from2_form, carray_form to_form);
+typedef void (*f_1arg_2targs_p)(const char *from1_s, char *to2_s, char *to_s,
+ int dim, carray_form from1_form, carray_form from2_form, carray_form to_form);
 typedef void (*f_ass_p)(pTHX_ AV *av, const char *p_s, int dim, carray_form format);
 
 typedef struct {const char* const codes_name; void *const fp; } func_descr;
 typedef struct {const char* const codes_name; f_0arg_p const fp; } f_0arg_descr;
 typedef struct {const char* const codes_name; f_1arg_p const fp; } f_1arg_descr;
+typedef struct {const char* const codes_name; f_1arg_2targs_p const fp; } f_1arg_2targs_descr;
 typedef struct {const char* const codes_name; f_2arg_p const fp; } f_2arg_descr;
 typedef struct {const char* const codes_name; f_ass_p  const fp; } f_ass_descr;
 extern const f_0arg_descr * const f_0arg_names_p;
 extern const int f_0arg_names_c;
 extern const f_1arg_descr * const f_1arg_names_p;
 extern const int f_1arg_names_c;
+extern const f_1arg_2targs_descr * const f_1arg_2targs_names_p;
+extern const int f_1arg_2targs_names_c;
 extern const f_2arg_descr * const f_2arg_names_p;
 extern const int f_2arg_names_c;
 extern const f_ass_descr * const f_ass_names_p;

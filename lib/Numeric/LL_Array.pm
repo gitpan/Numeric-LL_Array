@@ -21,7 +21,7 @@ require Exporter;
 	
 );
 
-$VERSION = '0.07';
+$VERSION = '0.08';
 
 my %exported;
 sub import {
@@ -323,7 +323,7 @@ corresponding C or Perl operator is put below, when it is different):
   negate flip_sign bit_complement incr decr 0   1   2  m1
   !      -         ~              ++   --   0   1   2  -1
 
-  abs cos sin tan acos asin atan exp log log10 sqrt ceil floor trunc rint
+  abs cos sin tan acos asin atan exp log log10 sqrt cbrt ceil floor trunc rint
 
 (If C operation takes an argument, we do C<target = OP(target)>,
 otherwise C<target = OP>.) For example, to increment C<signed char>
@@ -347,10 +347,13 @@ or C<assign> for assignment (possibly with type conversion), or
   lshift_assign  rshift_assign  pow_assign   bitand_assign bit(x)or_assign
   <<=            >>=            **=          &=            |=  ^=
 
-  negate flip_sign bit_complement ne0 abs ceil floor trunc rint log log10 sqrt
+  negate flip_sign bit_complement ne0 abs ceil floor trunc rint log log10 sqrt cbrt
 
 (The C<ceil floor trunc rint> are supported only for floating-point source
-types.)  C<ne0> checks for a value to be non-0.
+types; the last two only if your C compiler defines them [most do].)
+C<ne0> checks for a value to be non-0.  Semantic of function names
+C<abs ceil floor trunc rint log log10 sqrt cbrt frexp modf> coincides with one
+of the corresponding C functions.
 
 For example, to convert C<unsigned long> array to a C<long double> array,
 one uses the function named C<L2D1_assign>.
@@ -389,6 +392,11 @@ long: add[ition] [with 2 sources]>.)
 
 In short: the number before underscore is the number of "source" arrays,
 and the flavors of source arrays preceed the (first) number C<2> in the name.
+
+B<Exceptional handlers>: 2 additional handlers are provided (for C<frexp modf>);
+they take 1 source and 2 targets.  They should be called exactly as handlers
+with 2 sources and 1 target, only the second target takes place of the second
+source.
 
 =head2 Order of operations
 
@@ -570,24 +578,30 @@ But these operations are done in C, where they are much cheaper than in Perl.)
 
  NEED: product with wider target; same for lshift...
          (need src casts...)
- NEED: modf frexp (2 targets? both take *l), cbrt (detect l-variant???)...
- NEED: min/max ???  min_assign??? argmin() ?
+ NEED: min/max; with signed/vs/unsigned solved ???  min_assign??? argmin() ?
  NEED: How to find first elt which breaks conditions (as in a[n+1] == a[n]+1???
- NEED: more intelligent choice of accessors for q/Q and D...
+ NEED: more intelligent choice of accessors for q/Q and D (newsvpv?)...
  NEED: accessor to long double max-aligned (to 16 when size is between 8 and 16)
  NEED: long vs double comparison? char-vs-quad comparison? cmp?
  NEED: pseudo-flavor: k-th coordinate of the index (or a linear combination?)
  NEED: All flavors of FFT
  NEED: Indirect access (use value of one array as index in another)
  NEED: A lot of testers run out of memory already compiling 1arg; 2arg is
-	twice as large.  To split them, we need also to split the logic
+	3x as large.  To split them, we need also to split the logic
 	to look up the tables...
 		(Might find_in_ftable() (return (index << 2) | which_table)?)
 
-BSD misses many C<long double> APIs (elementary functions, rint() and C<**>).
+BSD misses many C<long double> APIs (elementary functions, trunc(), rint()
+shifts, and C<**>).
 So when deciding whether one wants to do operations over C<long double>s,
-one should either check for presence of the needed functions, or check
+one should either check for presence of the needed functions (by doing
+C<eval "use Numeric::LL_Array 'D0_sin'; 1"> or some such), or check
 return value of elementary_D_missing().
+
+Some C environments miss trunc() (and maybe rint()?  Did not see it missing).
+In such cases the corresponding handlers are not defined.  If you know how
+to work around, but want to use trunc() if present, one can check for this
+using eval(), as above, with handlers C<d0_trunc>, C<d0_rint>.
 
 In C Integer Conversion to signed type and floating to integer
 conversion are implementation-specific unless the (truncated) value can be

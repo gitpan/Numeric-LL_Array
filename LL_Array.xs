@@ -138,8 +138,42 @@ d_extract_as_ref(char *s, int start, int count, int stride)
     return newRV_noinc((SV*)av);
 }
 
+/* Can't make const without pointers, are defined in other compilation unit */
+typedef struct { const func_descr * const * f; const int *cnt; } func_descr_str;
+typedef struct { const f_ass_descr * const * f; const int *cnt; } f_ass_descr_str;
+typedef struct { const f_0arg_descr * const * f; const int *cnt; } f_0arg_descr_str;
+typedef struct { const f_1arg_descr * const * f; const int *cnt; } f_1arg_descr_str;
+typedef struct { const f_2arg_descr * const * f; const int *cnt; } f_2arg_descr_str;
+
+const f_ass_descr_str  f_ass_names_arr[]  = {{&f_ass_names_p,  &f_ass_names_c}};
+const f_0arg_descr_str f_0arg_names_arr[] = {{&f_0arg_names_p, &f_0arg_names_c}};
+const f_1arg_descr_str f_1arg_names_arr[] = {{&f_1arg_names_p, &f_1arg_names_c}};
+  /* One cast below saves as a lot of duplication of Perl-->C interfaces */
+const f_2arg_descr_str f_2arg_names_arr[] = {
+  {&f_2arg_names_p, &f_2arg_names_c},
+  {(const f_2arg_descr * const *)&f_1arg_2targs_names_p, &f_1arg_2targs_names_c},
+};
+
+const func_descr_str *names_arr[] =
+ {(const func_descr_str *)f_2arg_names_arr,	/* inverted 2-arg */
+  (const func_descr_str *)f_ass_names_arr,	/* accessors */
+  (const func_descr_str *)f_0arg_names_arr,
+  (const func_descr_str *)f_1arg_names_arr,
+  (const func_descr_str *)f_2arg_names_arr};
+
+		    /* n = 2  a  0  1  2  (n-args flavors of func) */
+const int names_arr_c[] = {2, 1, 1, 1, 2};	/* How many parts of array */
+
+#define NAMES_IND_SHIFT	2	/* 2^int >= max(names_arr_c) */
+#define NAMES_IND_MASK	((1<<NAMES_IND_SHIFT)-1)
+
+#define Fa_get(ix)	(*(f_ass_names_arr [(ix) & NAMES_IND_MASK].f)  + ((ix)>>NAMES_IND_SHIFT))
+#define F0_get(ix)	(*(f_0arg_names_arr[(ix) & NAMES_IND_MASK].f) + ((ix)>>NAMES_IND_SHIFT))
+#define F1_get(ix)	(*(f_1arg_names_arr[(ix) & NAMES_IND_MASK].f) + ((ix)>>NAMES_IND_SHIFT))
+#define F2_get(ix)	(*(f_2arg_names_arr[(ix) & NAMES_IND_MASK].f) + ((ix)>>NAMES_IND_SHIFT))
+
 static int
-find_in_ftable(char *s, func_descr *table, int tcount)
+find_in_ftable(char *s, const func_descr *table, int tcount)
 {
   int n;
 
@@ -151,18 +185,24 @@ find_in_ftable(char *s, func_descr *table, int tcount)
 }
 
 static int
+find_in_ftable_arr(char *s, const func_descr_str *tables, int tcount)
+{
+  int n, res;
+
+  for (n = 0; n < tcount; n++) {
+    res = find_in_ftable(s, *(tables[n].f), *(tables[n].cnt));
+    if (res)
+      return n + (res<<NAMES_IND_SHIFT);
+  }
+  return 0;
+}
+
+static int
 find_in_ftables(char *s, int arity)
 {
-  switch (arity) {
-    case -1:	/* Accessor */
-	return find_in_ftable(s, (func_descr *)f_ass_names_p,  f_ass_names_c);
-    case 0:
-	return find_in_ftable(s, (func_descr *)f_0arg_names_p, f_0arg_names_c);
-    case 1:
-	return find_in_ftable(s, (func_descr *)f_1arg_names_p, f_1arg_names_c);
-    case 2:
-    case -2:
-	return find_in_ftable(s, (func_descr *)f_2arg_names_p, f_2arg_names_c);
+  switch (arity) {/* Arity, Accessor=-1, inv-2arg=-2 */
+    case -2: case -1:  case 0: case 1: case 2:
+	return find_in_ftable_arr(s, names_arr[arity+2],  names_arr_c[arity+2]);
     default:
 	croak("Unknown table arity for find: %d; expect -1,0,1,2,-2", arity);
   }
@@ -271,7 +311,8 @@ __a_accessor__INTERFACE(p, offset = 0, dim = 0, format = Nullsv, sv = Nullsv, ke
        const char *p_s;
        STRLEN sz;
        dXSI32;		/* ix */
-       int sizeof_elt = f_ass_names_p[ix].codes_name[0];
+       const f_ass_descr *desc = Fa_get(ix);
+       int sizeof_elt = desc->codes_name[0];
 
        if (!sv || !SvOK(sv))
 	   av = 0;
@@ -299,7 +340,7 @@ __a_accessor__INTERFACE(p, offset = 0, dim = 0, format = Nullsv, sv = Nullsv, ke
              croak("Array of negative size, or not fitting into a playground: "
 		   "sz=%ld, sizeof(elt)=%ld, arity=%ld, offset=%ld",
 		   (long)sz, (long)sizeof_elt, (long)dim, (long)offset);
-         (f_ass_names_p[ix].fp)(aTHX_ av, p_s + sizeof_elt*offset, dim, f);
+         (desc->fp)(aTHX_ av, p_s + sizeof_elt*offset, dim, f);
        }
        SPAGAIN;    
    }
@@ -315,7 +356,8 @@ _0arg__INTERFACE(p, offset = 0, dim = 0, format = Nullsv)
        char *p_s;
        STRLEN sz;
        dXSI32;		/* ix */
-       int sizeof_elt = f_0arg_names_p[ix].codes_name[0];
+       const f_0arg_descr *desc = F0_get(ix);
+       int sizeof_elt = desc->codes_name[0];
 
        if (dim && !format)
 	   croak("format should be present if dim > 0");
@@ -325,7 +367,7 @@ _0arg__INTERFACE(p, offset = 0, dim = 0, format = Nullsv)
 
          if (!checkfit(sz, sizeof_elt, dim, offset, f, f))
              croak("Array of negative size, or not fitting into a playground");
-         (f_0arg_names_p[ix].fp)(p_s + sizeof_elt*offset, dim, f);
+         (desc->fp)(p_s + sizeof_elt*offset, dim, f);
        }
        XSRETURN_YES;
    }
@@ -345,8 +387,9 @@ _1arg__INTERFACE(s_p, p, s_offset, offset, dim, sformat, format)
        const char *sp_s;
        STRLEN sz, ssz;
        dXSI32;		/* ix */
-       int sizeof_elt   = f_1arg_names_p[ix].codes_name[0];
-       int s_sizeof_elt = f_1arg_names_p[ix].codes_name[1];
+       const f_1arg_descr *desc = F1_get(ix);
+       int sizeof_elt   = desc->codes_name[0];
+       int s_sizeof_elt = desc->codes_name[1];
 
        if (dim && !(format && sformat))
 	   croak("format should be present if dim > 0");
@@ -360,7 +403,7 @@ _1arg__INTERFACE(s_p, p, s_offset, offset, dim, sformat, format)
              croak("Target array of negative size, or not fitting into a playground");
          if (!checkfit(ssz, s_sizeof_elt, dim, s_offset, s_f, f))
              croak("Source array not fitting into a playground");
-         (f_1arg_names_p[ix].fp)(sp_s + s_sizeof_elt * s_offset, p_s + sizeof_elt*offset, dim, s_f, f);
+         (desc->fp)(sp_s + s_sizeof_elt * s_offset, p_s + sizeof_elt*offset, dim, s_f, f);
        }
        XSRETURN_YES;
    }
@@ -383,9 +426,10 @@ _2arg__INTERFACE(s1_p, s2_p, p, s1_offset, s2_offset, offset, dim, s1format, s2f
        const char *s1p_s, *s2p_s;
        STRLEN sz, s1sz, s2sz;
        dXSI32;		/* ix */
-       int sizeof_elt    = f_2arg_names_p[ix].codes_name[0];
-       int s1_sizeof_elt = f_2arg_names_p[ix].codes_name[1];
-       int s2_sizeof_elt = f_2arg_names_p[ix].codes_name[2];
+       const f_2arg_descr *desc = F2_get(ix);
+       int sizeof_elt    = desc->codes_name[0];
+       int s1_sizeof_elt = desc->codes_name[1];
+       int s2_sizeof_elt = desc->codes_name[2];
 
        if (dim && !(format && s1format && s2format))
 	   croak("format should be present if dim > 0");
@@ -403,7 +447,7 @@ _2arg__INTERFACE(s1_p, s2_p, p, s1_offset, s2_offset, offset, dim, s1format, s2f
              croak("Source1 array not fitting into a playground");
          if (!checkfit(s2sz, s2_sizeof_elt, dim, s2_offset, s2_f, f))
              croak("Source2 array not fitting into a playground");
-         (f_2arg_names_p[ix].fp)(s1p_s + s1_sizeof_elt * s1_offset,
+         (desc->fp)(s1p_s + s1_sizeof_elt * s1_offset,
 				 s2p_s + s2_sizeof_elt * s2_offset,
 				 p_s + sizeof_elt*offset, dim, s1_f, s2_f, f);
        }
@@ -428,9 +472,10 @@ _2arg__INTERFACE_inverted(s2_p, s1_p, p, s2_offset, s1_offset, offset, dim, s2fo
        const char *s1p_s, *s2p_s;
        STRLEN sz, s1sz, s2sz;
        dXSI32;		/* ix */
-       int sizeof_elt    = f_2arg_names_p[ix].codes_name[0];
-       int s1_sizeof_elt = f_2arg_names_p[ix].codes_name[1];
-       int s2_sizeof_elt = f_2arg_names_p[ix].codes_name[2];
+       const f_2arg_descr *desc = F2_get(ix);
+       int sizeof_elt    = desc->codes_name[0];
+       int s1_sizeof_elt = desc->codes_name[1];
+       int s2_sizeof_elt = desc->codes_name[2];
 
        if (dim && !(format && s1format && s2format))
 	   croak("format should be present if dim > 0");
@@ -448,7 +493,7 @@ _2arg__INTERFACE_inverted(s2_p, s1_p, p, s2_offset, s1_offset, offset, dim, s2fo
              croak("Source1 array not fitting into a playground");
          if (!checkfit(s2sz, s2_sizeof_elt, dim, s2_offset, s2_f, f))
              croak("Source2 array not fitting into a playground");
-         (f_2arg_names_p[ix].fp)(s1p_s + s1_sizeof_elt * s1_offset,
+         (desc->fp)(s1p_s + s1_sizeof_elt * s1_offset,
 				 s2p_s + s2_sizeof_elt * s2_offset,
 				 p_s + sizeof_elt*offset, dim, s1_f, s2_f, f);
        }

@@ -10,10 +10,22 @@ my $no_mycbrtl = ($miss{sinl} or $miss{cbrtl} and $miss{_cbrtl});
 # trunc() and rint() are not in C90.  (So far no complaints about rint()...)
 my @trunc_rint = map +($miss{$_} ? () : $_), qw(trunc rint);
 
-open OUT_ASS,  '> driver_ass.h'  or die;
-open OUT_0ARG, '> driver_0arg.h' or die;
-open OUT_1ARG, '> driver_1arg.h' or die;
-open OUT_2ARG, '> driver_2arg.h' or die;
+open OUT_ASS,   '> driver_ass.h'  or die;
+open OUT_0ARG,  '> driver_0arg.h' or die;
+
+open OUT_1ARG,  '> driver_1arg.h' or die;
+open OUT_1ARGA, '> driver_1argA.h' or die;
+open OUT_1ARGB, '> driver_1argB.h' or die;
+open OUT_1ARGC, '> driver_1argC.h' or die;
+
+open OUT_2ARG,  '> driver_2arg.h' or die;
+open OUT_2ARGA, '> driver_2argA.h' or die;
+open OUT_2ARGB, '> driver_2argB.h' or die;
+open OUT_2ARGC, '> driver_2argC.h' or die;
+open OUT_2ARGD, '> driver_2argD.h' or die;
+open OUT_2ARGE, '> driver_2argE.h' or die;
+open OUT_2ARGF, '> driver_2argF.h' or die;
+
 open OUT_2ARG_T, '> table_1arg_2targs.h' or die;
 
 print OUT_0ARG "const int has_sinl = $has_sinl;\n\n";
@@ -26,7 +38,18 @@ if ($no_mycbrtl) {
 EOP
 }
 
-my(@list_ass, @list_0arg, @list_1arg, @list_2arg, @list_1arg_2targs, $name);
+my @_letters = ('', 'A' .. 'Z');
+my(@list_ass, @list_0arg, @list_2arg, @list_1arg_2targs, $name);
+my ($out_1arg_i, $out_2arg_i, $j, $out_2targ, @out_1arg, @out_2arg) = (0, 0, 0);
+push @out_1arg,
+ { fh => $_, sym => [], ary => 1,
+   tname => "_1arg", name => "_1arg$_letters[$j++]"}
+  for (\*OUT_1ARG, \*OUT_1ARGA, \*OUT_1ARGB, \*OUT_1ARGC);
+$j=0;
+push @out_2arg,
+ { fh => $_, sym => [], ary => 2,
+   tname => "_2arg", name => "_2arg$_letters[$j++]"}
+  for (\*OUT_2ARG, \*OUT_2ARGA, \*OUT_2ARGB, \*OUT_2ARGC, \*OUT_2ARGD, \*OUT_2ARGE, \*OUT_2ARGF);
 
 my %type = (		# XXX Add long flavors later...
 		c => 'signed char',
@@ -151,8 +174,8 @@ for my $c (['!', 'negate'], ['-', 'flip_sign'], ['~', 'bit_complement'],
 EOP
   next unless $c->[2];
 
-  $name = "${_}2${_}1_$c->[1]", push(@list_1arg, [$name, $_, $_]),
-    print OUT_1ARG <<EOP for @allowed_types;
+  $name = "${_}2${_}1_$c->[1]", push(@{$out_1arg[$out_1arg_i]{sym}}, [$name, $_, $_]),
+    print {$out_1arg[$out_1arg_i]{fh}} <<EOP for @allowed_types;
 #define SOURCE_ELT_TYPE		$type{$_}
 #define TARG_ELT_TYPE		$type{$_}
 #define DO_1OP(targ,source)	(targ) = $c_pref{$_}$c->[0]$c_suff{$_}(source)
@@ -181,14 +204,15 @@ for my $c (['++', 'incr'], ['--', 'decr']) {
 EOP
 }
 
+### $out_1arg_i++;
 # conversion calls (1-arg)
 for my $s (@use_types) {
   for my $t (@use_types) {
     my $mid_convert = '';
     $mid_convert = '(int)' if "$s$t" =~ /[cs][fdD]|[fdD][cs]/; # Needed?
     $mid_convert = '(unsigned int)' if "$s$t" =~ /[CS][fdD]|[fdD][CS]/; # Needed?
-    $name = "${s}2${t}1_assign", push(@list_1arg, [$name, $t, $s]),
-      print OUT_1ARG <<EOP;
+    $name = "${s}2${t}1_assign", push(@{$out_1arg[$out_1arg_i]{sym}}, [$name, $t, $s]),
+      print {$out_1arg[$out_1arg_i]{fh}} <<EOP;
 #define SOURCE_ELT_TYPE		$type{$s}
 #define TARG_ELT_TYPE		$type{$t}
 #define DO_1OP(targ,source)	(targ) = (TARG_ELT_TYPE)$mid_convert(source)
@@ -205,16 +229,22 @@ EOP
 
 my %fp_vars = qw( << ldexp >> ldexp_neg );
 
+### $out_1arg_i++;
 # other 1-arg calls (with possible source and target types)
 for my $c (['!', 'negate'], ['-', 'flip_sign'], ['~', 'bit_complement'],
 	   ['my_ne0', 'ne0'],
-	   map([$_, $_, 1], qw(ceil floor), @trunc_rint),
+	   '---',
 	   map([$_, $_, 0], qw(log log10 sqrt abs cbrt)), # Allow int args
+	   '---',
 	   ['+=', 'plus_assign'], ['-=', 'minus_assign'],
 	   ['*=', 'mult_assign'], ['/=', 'div_assign'],
 	   ['|=', 'bitor_assign'], ['&=', 'bitand_assign'], ['^=', 'bitxor_assign'],
+	   '---',
+	   map([$_, $_, 1], qw(ceil floor), @trunc_rint),
 	   ['%=', 'remainder_assign'], ['pow((targ), ', 'pow_assign'],
 	   ['<<=', 'lshift_assign'], ['>>=', 'rshift_assign']) {
+  $out_1arg_i++, next if $c eq '---';
+  die "too many parts in the 1arg list" if $out_1arg_i >=  @out_1arg;
   my @allowed_types = @use_types;
   @allowed_types = grep !/[fdD]/, @allowed_types if $c->[0] =~ /[~%|&^]/;
   @allowed_types = grep !/D/, @allowed_types
@@ -237,8 +267,8 @@ for my $c (['!', 'negate'], ['-', 'flip_sign'], ['~', 'bit_complement'],
       $ccc =~ s/^(pow|ldexp(_neg)?)/${1}l/ if "$s$t" =~ /D/;
       my $eq = ($ccc =~ s/=$/= /) ? '' : '=';
       my $trailer = ($ccc =~ /\(/) ? ')' : '';
-      $name = "${s}2${t}1_$c->[1]", push(@list_1arg, [$name, $t, $s]),
-	print OUT_1ARG <<EOP;
+      $name = "${s}2${t}1_$c->[1]", push(@{$out_1arg[$out_1arg_i]{sym}}, [$name, $t, $s]),
+	print {$out_1arg[$out_1arg_i]{fh}} <<EOP;
 #define SOURCE_ELT_TYPE		$type{$s}
 #define TARG_ELT_TYPE		$type{$t}
 #define DO_1OP(targ,source)	(targ) $eq $c_pref{$s}$ccc$c_suff{$s}(source)$trailer
@@ -260,12 +290,24 @@ my %t2_type = (qw( frexp int modf double modfl), 'long double');
 
 # 2-arg calls (with possible source and target types)
 for my $c (['+', 'plus'], ['-', 'minus'],
-	   ['*', 'mult'], ['/', 'div'], ['*', 'sproduct'],
-	   ['|', 'bitor'], ['&', 'bitand'], ['^', 'bitxor'],
-	   ['%', 'remainder'], ['pow', 'pow'], ['modf', 'modf'], ['frexp', 'frexp'],
-	   (map ["my_$_", $_], qw( lt le eq ne )),
+	   ['|', 'bitor'], ['&', 'bitand'],
+	   '---',	# Break into parts; try to equalize # of functions
+	   ['/', 'div'], ['*', 'mult'],
+	   '---',
+	   ['*', 'sproduct'], ['pow', 'pow'],
+	   ['modf', 'modf'], ['frexp', 'frexp'],
+	   '---',
+	   ['<<', 'lshift'], ['>>', 'rshift'], ['%', 'remainder'], ['^', 'bitxor'],
+	   '---',
+	   (map ["my_$_", $_], qw( eq ne )),
+	   '---',
+	   (map ["my_$_", $_], qw( lt )),
+	   '---',
+	   (map ["my_$_", $_], qw( le )),
 	   # ['<', 'lt'], ['<=', 'le'], ['==', 'eq'], ['!=', 'ne'],
-	   ['<<', 'lshift'], ['>>', 'rshift']) {
+     ) {
+  $out_2arg_i++, next if $c eq '---';
+  die "too many parts in the 2arg list" if $out_2arg_i >=  @out_2arg;
   my @allowed_types = @use_types;
   @allowed_types = grep !/[fdD]/, @allowed_types if $c->[0] =~ /[~%|&^]/;
   @allowed_types = grep !/D/, @allowed_types if $miss{sinl} and $c->[0] =~ /^(pow|<<|>>)/;
@@ -312,9 +354,10 @@ for my $c (['+', 'plus'], ['-', 'minus'],
 	  $s2_const = 'const';
 	}
 	$name = "${s1}${s2}2${t}2_$c->[1]";
-	push(@{ $t2_type{$pre} ? \@list_1arg_2targs : \@list_2arg },
+	push(@{ $t2_type{$pre} ? ($out_2targ = $out_2arg_i, \@list_1arg_2targs)
+			       : $out_2arg[$out_2arg_i]{sym} },
 	     [$name, $t, $s1, $s2]);
-	print OUT_2ARG <<EOP;
+	print {$out_2arg[$out_2arg_i]{fh}} <<EOP;
 #define SOURCE1_ELT_TYPE	$type{$s1}
 #define SOURCE2_ELT_TYPE	$type{$s2}
 #define TARG_ELT_TYPE		$type{$t}
@@ -337,40 +380,42 @@ EOP
   }
 }
 
-my %list_t = (_ass  => [\@list_ass,  0, \*OUT_ASS],
-	      _0arg => [\@list_0arg, 0, \*OUT_0ARG],
-	      _1arg => [\@list_1arg, 1, \*OUT_1ARG],
-	      _1arg_2targs => [\@list_1arg_2targs, 2, \*OUT_2ARG_T],
-	      _2arg => [\@list_2arg, 2, \*OUT_2ARG]);
-for my $list_t (qw(_ass _0arg _1arg _2arg _1arg_2targs)) {
-  print {$list_t{$list_t}[2]} <<EOP;
-const f${list_t}_descr f${list_t}_names[] = {
-	{ "\\0\\0\\0\\0", (f${list_t}_p)&croak_on_invalid_entry},
+my @list_t = ({name => '_ass',  sym => \@list_ass,  ary => 0, fh => \*OUT_ASS},
+	      {name => '_0arg', sym => \@list_0arg, ary => 0, fh => \*OUT_0ARG},
+#	      {name => '_1arg', sym => \@list_1arg, ary => 1, fh => \*OUT_1ARG},
+	      @out_1arg, @out_2arg,
+	      {name => '_1arg_2targs', sym => \@list_1arg_2targs, ary => 2, fh => \*OUT_2ARG_T},
+#	      {name => '_2arg', sym => \@list_2arg, ary => 2, fh => \*OUT_2ARG}
+  );
+for my $file (@list_t) {
+  $file->{tname} ||= $file->{name};
+  print {$file->{fh}} <<EOP;
+const f$file->{tname}_descr f$file->{name}_names[] = {
+	{ "\\0\\0\\0\\0", (f$file->{tname}_p)&croak_on_invalid_entry},
 EOP
 
-  for my $f (@{ $list_t{$list_t}[0] }) {
+  for my $f (@{ $file->{sym} }) {
     my($name) = @$f;
-    die "array `@$f' of unexpected length" unless @$f == $list_t{$list_t}[1]+2;
+    die "array `@$f' of unexpected length" unless @$f == $file->{ary}+2;
     my @args = @$f[1..$#$f];
     $_ = sprintf qq("\\%03o"), $ss{$_} for @args;
-    print {$list_t{$list_t}[2]} <<EOP;
+    print {$file->{fh}} <<EOP;
     { @args "$name", &$name },
 EOP
   }
 
-  print {$list_t{$list_t}[2]} <<EOP;
+  print {$file->{fh}} <<EOP;
 };
 
-const f${list_t}_descr * const f${list_t}_names_p = f${list_t}_names;
-const int f${list_t}_names_c = sizeof(f${list_t}_names)/sizeof(f${list_t}_names[0]);
+const f$file->{tname}_descr * const f$file->{name}_names_p = f$file->{name}_names;
+const int f$file->{name}_names_c = sizeof(f$file->{name}_names)/sizeof(f$file->{name}_names[0]);
 
 EOP
 }
 
-print OUT_2ARG qq(\n#include "table_1arg_2targs.h"\n\n);
+print {$out_2arg[$out_2targ]{fh}} qq(\n#include "table_1arg_2targs.h"\n\n);
 
 close OUT_ASS or die;
 close OUT_0ARG or die;
-close OUT_1ARG or die;
-close OUT_2ARG or die;
+close $_->{fh} for (@out_1arg, @out_2arg);
 close OUT_2ARG_T or die;

@@ -15,7 +15,16 @@ driver_h.h
 signed_cmp_etc.h
 driver_0arg.c
 driver_1arg.c
+driver_1argA.c
+driver_1argB.c
+driver_1argC.c
 driver_2arg.c
+driver_2argA.c
+driver_2argB.c
+driver_2argC.c
+driver_2argD.c
+driver_2argE.c
+driver_2argF.c
 driver_ass.c 
 t/Numeric-LL_Array.t
 t/signed_cmps.t

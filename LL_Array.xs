@@ -147,10 +147,20 @@ typedef struct { const f_2arg_descr * const * f; const int *cnt; } f_2arg_descr_
 
 const f_ass_descr_str  f_ass_names_arr[]  = {{&f_ass_names_p,  &f_ass_names_c}};
 const f_0arg_descr_str f_0arg_names_arr[] = {{&f_0arg_names_p, &f_0arg_names_c}};
-const f_1arg_descr_str f_1arg_names_arr[] = {{&f_1arg_names_p, &f_1arg_names_c}};
-  /* One cast below saves as a lot of duplication of Perl-->C interfaces */
+const f_1arg_descr_str f_1arg_names_arr[] = {
+  {&f_1arg_names_p, &f_1arg_names_c},
+  {&f_1argA_names_p, &f_1argA_names_c},
+  {&f_1argB_names_p, &f_1argB_names_c},
+  {&f_1argC_names_p, &f_1argC_names_c}};
+    /* One cast below saves as a lot of duplication of Perl-->C interfaces */
 const f_2arg_descr_str f_2arg_names_arr[] = {
   {&f_2arg_names_p, &f_2arg_names_c},
+  {&f_2argA_names_p, &f_2argA_names_c},
+  {&f_2argB_names_p, &f_2argB_names_c},
+  {&f_2argC_names_p, &f_2argC_names_c},
+  {&f_2argD_names_p, &f_2argD_names_c},
+  {&f_2argE_names_p, &f_2argE_names_c},
+  {&f_2argF_names_p, &f_2argF_names_c},
   {(const f_2arg_descr * const *)&f_1arg_2targs_names_p, &f_1arg_2targs_names_c},
 };
 
@@ -162,9 +172,9 @@ const func_descr_str *names_arr[] =
   (const func_descr_str *)f_2arg_names_arr};
 
 		    /* n = 2  a  0  1  2  (n-args flavors of func) */
-const int names_arr_c[] = {2, 1, 1, 1, 2};	/* How many parts of array */
+const int names_arr_c[] = {8, 1, 1, 4, 8};	/* How many parts of array */
 
-#define NAMES_IND_SHIFT	2	/* 2^int >= max(names_arr_c) */
+#define NAMES_IND_SHIFT	3	/* 2^int >= max(names_arr_c) */
 #define NAMES_IND_MASK	((1<<NAMES_IND_SHIFT)-1)
 
 #define Fa_get(ix)	(*(f_ass_names_arr [(ix) & NAMES_IND_MASK].f)  + ((ix)>>NAMES_IND_SHIFT))

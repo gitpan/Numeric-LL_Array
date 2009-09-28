@@ -63,3 +63,9 @@ Revision history for Perl extension Numeric::LL_Array.
 	Touch version in .pm file.
 	Infrastructure in XS to support handler C files split in smaller chunks.
 	modf, frexp added (with source2 playing the role of the 2nd target).
+
+0.09	Split handler C files inot smaller chunks
+		(should severely reduce the required memory during compilation:
+		 now builds when 130MB of free_mem + swap/tmp
+		 [takes 15min on Ultra5/333MHz]
+			*and* may speed up compilation - if quadratic algos).

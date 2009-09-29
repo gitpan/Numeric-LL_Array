@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:               Numeric-LL_Array
-version:            0.09
+version:            0.10
 abstract:           Perl extension for low level operations over numeric arrays.
 author:
     - Ilya Zakharevich <ilyaz@cpan.org>

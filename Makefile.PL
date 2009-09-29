@@ -32,6 +32,9 @@ EOW
   warn "cc -E failed; I assume non-BSD, so not a completely broken long double...\n";
 }
 $macros{WRITE_DRIVER_OPT} = "--miss=" . join ',', @miss if @miss;
+	# Communicate to sinl.t:
+open MISS, '>miss.miss' and print MISS "@miss" and close MISS;
+
 
 # We do not include perl.h from handlers
 push @defs, '-DMY_HAS_QUAD' if $Config{d_quad};
@@ -53,7 +56,7 @@ WriteMakefile(
 	# Un-comment this if you add C files to link with later:
     OBJECT            => '$(O_FILES)', # link all the C files too
     macro	      => \%macros,
-    clean	      => { FILES => 'driver_0arg.h driver_1arg.h driver_2arg.h driver_ass.h table_1arg_2targs.h' },
+    clean	      => { FILES => 'driver_0arg.h driver_1arg*.h driver_2arg*.h driver_ass.h table_1arg_2targs.h miss.miss' },
 );
 
 sub MY::postamble {

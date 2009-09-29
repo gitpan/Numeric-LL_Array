@@ -29,6 +29,8 @@ driver_ass.c
 t/Numeric-LL_Array.t
 t/signed_cmps.t
 t/ops.t
+t/sinl.t
+t/00_load.t
 lib/Numeric/LL_Array.pm
 examples/Poisson_solver_Chebyshev_relaxation.pl
 examples/Poisson_solver_multigrid.pl

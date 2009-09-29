@@ -48,7 +48,7 @@ if (0) {	# On boundary, initialize to a linear function
 typeout \$p, $w, $h if $w*$h < 1000;	# In a quadrant, initialize to x * y
 
 sub Poisson_4__4 ($$$$) {	# Spectrum normalized 4 --> -4
-  my ($s_r, $t_r, $w, $h) = @_;		# references to playgrounds
+  my ($s_r, $t_r, $w, $h) = @_;		# 2 references to playgrounds
   d2d1_assign $$s_r, $$t_r, 0, 0, 2,	# Exact copy
     [1,$w, $w, $h], [1,$w, $w, $h];
   # Add shift by (-1,1): take shift by (0,1), and add to shift by (1,0)

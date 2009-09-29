@@ -21,7 +21,7 @@ require Exporter;
 	
 );
 
-$VERSION = '0.09';
+$VERSION = '0.10';
 
 my %exported;
 sub import {
@@ -173,7 +173,7 @@ significantly reducing overhead of Perl over C (which, for I<literal>
 translation from C to Perl, is of order 80..200 times).
 
 One of the design goals is that many vectors should be able to use the
-same C array (e.g., of type double[]) - possibly with offset and a
+same C array (e.g., of type C<double[]>) - possibly with offset and a
 stride, so performing an operation over a I<subarray> does not require
 a new allocation.  The C array is stored in PVX of a Perl variable, so
 it may be (eventually) refcounted in the usual Perlish way.
@@ -181,7 +181,7 @@ it may be (eventually) refcounted in the usual Perlish way.
 =head2 Playgrounds and layout of strides
 
 A I<playground> is just (a region in) a Perl string, with the buffer
-propertly alighed to keep a massive of a certain C type.  This way, one gets,
+propertly alighed to keep a vector of a certain C type.  This way, one gets,
 e.g., C<unsigned char>-playground, or C<long double>-playground, etc.; we
 call this C type the I<flavor> of the playground.  One describes a certain
 position in the playground in units of the size of the corresponding C type;
@@ -229,6 +229,8 @@ and row of the matrix without moving the contents.
 Other examples: one can fit C<N x M x K> 0-array into playground of size 1
 using strides 0,0,0.  And one can fit C<N x N> identity matrix into a
 playground of size C<2N-1> by using strides 1,-1.
+
+For other examples, see L<Using extra, "fake" dimensions>.
 
 =head2 Encoding format of an array
 
@@ -344,10 +346,13 @@ or C<assign> for assignment (possibly with type conversion), or
   plus_assign   minus_assign   mult_assign   div_assign   remainder_assign
   +=            -=             *=            /=           %=
 
-  lshift_assign  rshift_assign  pow_assign   bitand_assign bit(x)or_assign
-  <<=            >>=            **=          &=            |=  ^=
+  lshift_assign rshift_assign  pow_assign   bitand_assign bit(x)or_assign
+  <<=           >>=            **=          &=            |=  ^=
 
-  negate flip_sign bit_complement ne0 abs ceil floor trunc rint log log10 sqrt cbrt
+  min_assing	   max_assign        negate flip_sign bit_complement ne0
+  $t = min($t,$s)  $t = max($t,$s)
+
+  abs ceil floor trunc rint log log10 sqrt cbrt
 
 (The C<ceil floor trunc rint> are supported only for floating-point source
 types; the last two only if your C compiler defines them [most do].)
@@ -365,7 +370,7 @@ flavors correspondingly.  C<type> is the identifier describing the
 semantic of the function:
 
   plus minus mult div remainder pow lt gt le ge eq ne lshift rshift
-  bitand bitor bitxor
+  bitand bitor bitxor min max sproduct
 
 Operations C<lt gt le ge eq ne> work as "in mathematics", not "as in C":
 a negative number is less than a non-negative, even if one type is signed,
@@ -374,11 +379,10 @@ goes through automatic C conversion C<long -E<gt> double>.  On some machines
 long has more bits than than mantissa of a double, so this includes rounding
 a C<long> to the nearest fitting C<double>.)
 
-One can also use C<sproduct> for the operation C<target += source1 *
-source2>.  The target type must coincide with one of the source types,
-except for C<mult> and C<sproduct>, where additionally "wider types" 
-(implemented types in C<f d D q Q>) are supported, and comparison operations
-C<lt gt le ge eq ne>, where the target may additionally be of any integer type.
+C<sproduct> performs the operation C<target += source1 * source2>.  
+
+The target type must coincide with one of the source types
+(but see for exceptions in L<Extra targets for 2-arg handlers>).
 
 If source1 or target are floating point, C<lshift> and C<rshift> operations
 accept negative arguments; additionally, no truncation is performed (including
@@ -417,6 +421,36 @@ target is $arr with offset 1; so the first addition will assign 0th element + 1
 to the 1st element of $arr; after this the first 2 elements of $arr are
 "correctly" initialized to 0 and 1.  The second addition will assign 1st
 element + 1 to the 2nd element, so it would become 2, etc.
+
+=head2 Extra targets for 2-arg handlers
+
+For the comparison handlers C<lt gt le ge eq ne>, in addition to types
+of the sources, the target can be of any integer type.
+
+For multiplication handlers C<mult> and C<sproduct>, in addition to types
+of the sources, the target can be of any wider type.  In more details: if one
+of arguments if floating point, C<wider> means the storage size
+in bytes is larger than of any of sources.  If both arguments are of integer
+types, I<wider> means one of the following: either in the sense of storage
+size, or a floating point type, or an unsigned size of the same storage size
+as the largest of the sources.
+
+For C<lshift> with integer type sources, wider unsigned integer type targets
+are allowed.
+
+=head2 Type casts
+
+Usually the generated C code for handlers contains no C type casts.  There are
+exceptions.
+
+For C<lshift> with integer type sources, and wider integer target, the
+sources are first cast to the target type.
+
+For C<mult> and C<sproduct>, when a wider type is allowed, the sources
+are first cast to the target type (with an extra exception of integer type
+sources and a floating point target which is not of larger bitwidth than
+sources; then, instead of the target type, the sources are first cast to the
+I<next wider> integer type - provided such a type exists).
 
 =head2 EXPORT
 
@@ -518,7 +552,42 @@ and dereference them only when passing to handlers.
   ...
   foo \$playground;
 
-=head2 Using extra dimensions
+=head2 Using extra, "fake" dimensions
+
+Many "typical" operations over arrays can be simplified a lot by introducing
+new "fake" dimensions to the array.  By the same reason why the size of a
+vector with the stride C<0> does not depend on its dimension, introducing
+new dimensions with stride C<0> does not chenge the memory region occupied
+by an array.  Hence with such dimensions added, still the same data is
+accessed.  The benefit is that many operations may be reduced to just
+C<sproduct> using this approach.
+
+Consider multiplication of a matrix C<R> by a vector C<v>.  If we want
+to put the result into array C<w> with initial contents C<0>, one could
+do
+
+  w[k] += R[k,l] * v[l] for k in 0..K-1, l in 0..L-1;
+
+However, if one could add an extra "fake" second dimension to C<w>, and an extra
+"fake" first dimension to C<v>, this becomes
+
+  W[k,l] += R[k,l] * V[k,l] for k in 0..K-1, l in 0..L-1;
+
+(this assumes that W[k,l] accesses the same data as w[k], and V[k,l] accesses
+the same data as v[l]).  Now it I<is> an operation of C<sproduct> with target
+C<W> and sources C<R> and C<V>.
+
+If C<w> is accessed with stride C<Sw>, and dimension C<K>, then C<W> should
+be accessed with strides C<Sw, 0>, and dimensions C<K,L>.  Likewise, if
+C<v> is accessed with stride C<Sv>, and dimension C<L>, then C<V> should
+be accessed with strides C<0, Sv>, and dimensions C<K,L>.
+
+Similarly, of one wants to multiply matrices C<P, Q> of dimensions C<K,L>,
+and C<L, M> into a resulting matrix C<R> of dimensions C<K,M> (initially 0),
+one should add extra "fake" dimensions to make them all of arity 3
+and dimensions C<K,L,M>, and do C<sproduct>.  The new strides are
+C<sP1,sP2,0> for C<P>, C<0,sQ1,sQ2> for C<Q>, and C<sR1,0,sR2> for C<R>
+(here we assume that omitting 0s gives old strides for C<P,Q,R>).
 
 Consider a problem of convolving two arrays C<A>, C<B> of sizes C<a>
 and C<b> with C<a E<gt> b>; the result is an array of size C<a+b-1> which
@@ -576,8 +645,6 @@ But these operations are done in C, where they are much cheaper than in Perl.)
 
 =head1 BUGS
 
- NEED: product with wider target; same for lshift...
-         (need src casts...)
  NEED: min/max; with signed/vs/unsigned solved ???  min_assign??? argmin() ?
  NEED: How to find first elt which breaks conditions (as in a[n+1] == a[n]+1???
  NEED: more intelligent choice of accessors for q/Q and D (newsvpv?)...
@@ -586,10 +653,6 @@ But these operations are done in C, where they are much cheaper than in Perl.)
  NEED: pseudo-flavor: k-th coordinate of the index (or a linear combination?)
  NEED: All flavors of FFT
  NEED: Indirect access (use value of one array as index in another)
- NEED: A lot of testers run out of memory already compiling 1arg; 2arg is
-	3x as large.  To split them, we need also to split the logic
-	to look up the tables...
-		(Might find_in_ftable() (return (index << 2) | which_table)?)
 
 BSD misses many C<long double> APIs (elementary functions, trunc(), rint()
 shifts, and C<**>).

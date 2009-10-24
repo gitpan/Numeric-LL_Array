@@ -43,3 +43,5 @@
 #define self_assign_max_su(a,b)	self_assign_max_how(_su,(a),(b))
 #define self_assign_min_us(a,b)	self_assign_min_how(_us,(a),(b))
 #define self_assign_max_us(a,b)	self_assign_max_how(_us,(a),(b))
+
+#define	powl_cbrtl(a)	((a)>=0 ? powl((a),1/(long double)3) : -powl(-(a),1/(long double)3))

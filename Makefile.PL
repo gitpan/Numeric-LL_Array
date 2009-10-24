@@ -7,16 +7,16 @@ my $cc_E_out = `$Config{cc} -E -I. utils/try.h` || 0; # May fail on some systems
 if ($cc_E_out =~ / \b double \b .* \b sin \b .* \( .* \b double /x ) {
   # apparently, we can trust $cpp_out
   my ($sym);
-  for $sym (qw(sinl cbrtl _cbrtl)) {
+  for $sym (qw(sinl logl cbrtl _cbrtl)) {
     next if $cc_E_out =~ / \b long \s+ double \b .* \b $sym \b .* \( .* \b long \s+ double /x;
     push @miss, $sym;
-    warn(<<EOW), last if $sym eq 'sinl';
-Looks like you do not have sinl() (is it BSD, and is BSD *that* broken?)...
+    warn(<<EOW), last if $sym =~ /^(sinl|logl)$/;
+Looks like you do not have $sym() (is it BSD, and is BSD *that* broken?)...
   I will try to skip defining similar functions...
 EOW
     warn <<EOW;
 Looks like you do not have $sym()...
-  I will try to skip defining methods needing $sym()...
+  I will try to define it in terms of powl()...
 EOW
   }
   for $sym (qw(rint trunc)) {
@@ -28,7 +28,7 @@ EOW
     push @miss, $sym;
   }
 } else {
-  push @miss, 'cc-E';
+  push @miss, 'cc-E';		# Just in case; we do not expect it yet...
   warn "cc -E failed; I assume non-BSD, so not a completely broken long double...\n";
 }
 $macros{WRITE_DRIVER_OPT} = "--miss=" . join ',', @miss if @miss;
@@ -39,16 +39,18 @@ open MISS, '>miss.miss' and print MISS "@miss" and close MISS;
 # We do not include perl.h from handlers
 push @defs, '-DMY_HAS_QUAD' if $Config{d_quad};
 my $cbrtl_und = ((grep $_ eq 'cbrtl', @miss) ? '_' : '');
+$cbrtl_und = 'powl_' if $cbrtl_und eq '_' and grep $_ eq '_cbrtl', @miss;
+
 push @defs, "-Dmy_cbrtl=${cbrtl_und}cbrtl";
 
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
 # the contents of the Makefile that is written.
 WriteMakefile(
     NAME              => 'Numeric::LL_Array',
-    VERSION_FROM      => 'lib/Numeric/LL_Array.pm', # finds $VERSION
+    VERSION_FROM      => 'LL_Array.pm', # finds $VERSION
     PREREQ_PM         => {}, # e.g., Module::Name => 1.1
     ($] >= 5.005 ?     ## Add these new keywords supported since 5.005
-      (ABSTRACT_FROM  => 'lib/Numeric/LL_Array.pm', # retrieve abstract from module
+      (ABSTRACT_FROM  => 'LL_Array.pm', # retrieve abstract from module
        AUTHOR         => 'Ilya Zakharevich <ilyaz@cpan.org>') : ()),
     LIBS              => ['-lm'], # e.g., '-lm'
     DEFINE            => "@defs", # e.g., '-DHAVE_SOMETHING'

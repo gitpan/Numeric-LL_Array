@@ -83,3 +83,8 @@ Revision history for Perl extension Numeric::LL_Array.
 	signed_cmps.t: test for casting of result was busted.
 	New tests sinl.t and 00_load.t (with report of MakeMaker args to
 		work around bugs in smoke testing).
+
+0.11	my_cbrtl(): move choice of defines from write_driver.pl to Makefile.PL.
+		Should simplify debuggin Irix/OpenBSD problem(s)...
+	inspect presence of logl() too (sinl() OK in OpenBSD, but no others...)
+	Move .pm file to the root of distribution.

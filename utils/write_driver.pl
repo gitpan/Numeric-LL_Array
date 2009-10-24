@@ -4,9 +4,9 @@ use Config;
 
 my ($miss) = ( ($ARGV[0] || '') =~ /^--miss=(.*)/ );
 my %miss = map +($_, 1), split /,/, ($miss || '');
+$miss{sinl} ||= $miss{logl};	# OpenBSD has sinl(), but not most of others
 
 my $has_sinl = !$miss{sinl} || 0;
-my $no_mycbrtl = ($miss{sinl} or $miss{cbrtl} and $miss{_cbrtl});
 # trunc() and rint() are not in C90.  (So far no complaints about rint()...)
 my @trunc_rint = map +($miss{$_} ? () : $_), qw(trunc rint);
 
@@ -49,14 +49,6 @@ EOP
   for (\*OUT_ASS, \*OUT_0ARG, \*OUT_2ARG_T, map $_->{fh}, @out_1arg, @out_2arg);
 
 print OUT_0ARG "const int has_sinl = $has_sinl;\n\n";
-
-if ($no_mycbrtl) {
-  print $_ <<EOP for (\*OUT_0ARG, \*OUT_2ARG);
-#undef	my_cbrtl
-#define	my_cbrtl(a)	(a>=0 ? powl((a),1/(long double)3) : -powl(-(a),1/(long double)3))
-
-EOP
-}
 
 my %type = (		# XXX Add long flavors later...
 		c => 'signed char',
@@ -162,7 +154,6 @@ for my $c (['!', 'negate'], ['-', 'flip_sign'], ['~', 'bit_complement'],
   @allowed_types = grep !/[fdD]/, @allowed_types if $c->[0] eq '~';
   @allowed_types = grep /[fdD]/, @allowed_types if $c->[2];
   @allowed_types = grep !/D/, @allowed_types if defined $c->[2] and $miss{sinl};
-#  @allowed_types = grep !/D/, @allowed_types if $c->[1] eq 'cbrt' and $no_mycbrtl;
   my (%c_suff, %c_pref);
   @c_pref{@allowed_types} = @c_suff{@allowed_types} = ('') x @allowed_types;
   $c_suff{D} = 'l' if defined $c->[2];
@@ -261,7 +252,6 @@ for my $c (['!', 'negate'], ['-', 'flip_sign'], ['~', 'bit_complement'],
   @allowed_types = grep !/[fdD]/, @allowed_types if $c->[0] =~ /[~%|&^]/;
   @allowed_types = grep !/D/, @allowed_types
     if $miss{sinl} and ($c->[0] =~ /^(pow|<<|>>)/ or defined $c->[2]);
-#  @allowed_types = grep !/D/, @allowed_types if $c->[1] eq 'cbrt' and $no_mycbrtl;
   my (%c_suff, %c_pref);
   @c_pref{@allowed_types} = @c_suff{@allowed_types} = ('') x @allowed_types;
   $c_suff{D} = 'l' if defined $c->[2];

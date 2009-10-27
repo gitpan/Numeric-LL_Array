@@ -88,3 +88,5 @@ Revision history for Perl extension Numeric::LL_Array.
 		Should simplify debuggin Irix/OpenBSD problem(s)...
 	inspect presence of logl() too (sinl() OK in OpenBSD, but no others...)
 	Move .pm file to the root of distribution.
+
+0.12    t/sinl.t was not updated for possibility of logl() to be found missing.

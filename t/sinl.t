@@ -12,8 +12,8 @@ BEGIN {
   my $miss_d = -f "t/sinl.t" ? '.' : '..';
   $skips = do {local $/; open F, "$miss_d/miss.miss" and scalar <F>};
   close F;
-  if ($skips =~ /\b sinl \b/x) {
-    plan skip_all => 'I could not find sinl() in your headers' ;
+  if ($skips =~ /\b (sinl|logl) \b/x) {
+    plan skip_all => 'I could not find $1() in your headers' ;
   } elsif (not $Config{d_longdbl}) {
     plan skip_all => 'I could not find long double support in your Perl' ;
   } else {

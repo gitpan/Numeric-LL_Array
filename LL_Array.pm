@@ -21,7 +21,7 @@ require Exporter;
 	
 );
 
-$VERSION = '0.12';
+$VERSION = '0.13';
 
 my %exported;
 sub import {
@@ -106,19 +106,21 @@ sub _create_handler ($$$$;@) {
   die "Unexpected number of arguments for `$how'"
     unless ($t >= 0 ? $t : 0) == @src;
   die "Flavor unexpected for `$how'" if defined $flavor and -1 == $t;
-  $_ = ($Numeric::LL_Array::translateTypes{$_} or die "Unknown type: $_ in `$name'")
-    for $targ, @src;
-  if ($invert{$flavor || 0}
+  my @orig = ($targ, @src);
+  $_ = ($Numeric::LL_Array::translateTypes{$_}
+    or die "Unknown type: $_ in `$name'") for $targ, @src;
+  if ($invert{$flavor || 0} # For some ops, only 1 interface of f(x,y), f(y,x)
       and ($invert{$flavor} ne $flavor or
 	   $Numeric::LL_Array::typeSizes{$src[0]} > $Numeric::LL_Array::typeSizes{$src[1]}
 	   or $Numeric::LL_Array::typeSizes{$src[0]} == $Numeric::LL_Array::typeSizes{$src[1]}
 	      and "$src[0]$src[1]" =~ /[CSILQ][csilq]/)) {
-    # Only one of the equivalent flavors is present as a C function
-    @src = @src[1,0];
+    @src = @src[1,0];    # Only 1 of the equivalent flavors is coded in C
     $flavor = $invert{$flavor};
     $tt = -$t;
   }
   $targ = lc $targ if $comp{$flavor || 0} and $targ =~ /[CSILQ]/;
+  defined $Numeric::LL_Array::typeSizes{$_}
+    or die "Unknown size for $_ in `$name', orig = @orig" for $targ, @src;
   my $types = join '', map chr $Numeric::LL_Array::typeSizes{$_}, $targ, @src;
   my $src = join '', @src;
   if (-1 == $t) {

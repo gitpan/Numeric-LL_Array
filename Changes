@@ -92,3 +92,6 @@ Revision history for Perl extension Numeric::LL_Array.
 0.12    t/sinl.t was not updated for possibility of logl() to be found missing.
 
 0.13	More diagnostics in handlers' loader (smoke testing puzzle on MSWin32)
+
+0.1301	Yet more diagnostics for smoke testing puzzle on MSWin32
+

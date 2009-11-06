@@ -21,7 +21,7 @@ require Exporter;
 	
 );
 
-$VERSION = '0.13';
+$VERSION = '0.1301';
 
 my %exported;
 sub import {
@@ -97,6 +97,12 @@ my %i = qw(gt lt ge le);
 @comp{%i, qw(eq ne)} = (1) x 6;
 @invert{keys %i} = values %i;
 
+sub db_win32() {
+  my ($d, $n, @s) = (duplicateTypes(), typeNames(), %Numeric::LL_Array::typeSizes);
+  my @t = %Numeric::LL_Array::translateTypes;
+  "s=(@s) t=(@t) d=`$d' n=`$n'";
+}
+
 my %t = qw(access -1 _0arg 0 _1arg 1 _2arg 2);
 my %t_r = reverse %t;
 sub _create_handler ($$$$;@) {
@@ -120,7 +126,8 @@ sub _create_handler ($$$$;@) {
   }
   $targ = lc $targ if $comp{$flavor || 0} and $targ =~ /[CSILQ]/;
   defined $Numeric::LL_Array::typeSizes{$_}
-    or die "Unknown size for $_ in `$name', orig = @orig" for $targ, @src;
+    or die "Unknown size for $_ in `$name', orig = @orig; now = $targ, @src; "
+     . db_win32() for $targ, @src;
   my $types = join '', map chr $Numeric::LL_Array::typeSizes{$_}, $targ, @src;
   my $src = join '', @src;
   if (-1 == $t) {

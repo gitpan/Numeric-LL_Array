@@ -30,6 +30,7 @@ t/Numeric-LL_Array.t
 t/signed_cmps.t
 t/ops.t
 t/sinl.t
+t/tnames.t
 t/00_load.t
 LL_Array.pm
 examples/Poisson_solver_Chebyshev_relaxation.pl

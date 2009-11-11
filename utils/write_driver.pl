@@ -72,15 +72,15 @@ my %size = (qw(c 1 s), $Config{shortsize}, i => $Config{intsize},
 	l => $Config{longsize}, q => $Config{longlongsize},
 	d => $Config{doublesize}, D => $Config{longdblsize},
 	f => length pack 'f', 0);
-my($prevs, $prev, %conv, %dups, %dups_lc) = 0;
+my($prevs, $prev, %dups, %dups_lc) = 0;
 my(@first, @dups, %ss, %first_ind, %next_lc);
 
 for my $t (grep $type{$_}, qw(c s i l q)) {
   my $ss = $ss{$t} = $size{$t} || ($prevs+1);  # Some Config stuff undefined???
-  push(@dups, $t), $dups{$t} = $conv{$t} = $prev, next if $ss <= $prevs;
+  push(@dups, $t), $dups{$t} = $prev, next if $ss <= $prevs;
   push @first, $t;
   $first_ind{$t} = @first;
-  $prev = $conv{$t} = $t;
+  $prev = $t;
   $prevs = $ss;
 }
 for my $ind (0 .. ($#first - 1)) {
@@ -91,12 +91,12 @@ $ss{uc $_} = $ss{$_} for keys %ss;
 my @first_uc = map uc, @first;
 
 ($prevs, $prev) = 0;
-for my $t (grep $type{$_}, qw(f d D)) {
+for my $t (grep $type{$_}, qw(f d D)) {	# On MSWin32: longdblsize=8 ???
   my $ss = $ss{$t} = $size{$t} || ($prevs+1);  # Some Config stuff undefined???
-  push(@dups, $t), $conv{$t} = $prev, $dups{$t}++, next if $ss <= $prevs;
+  push(@dups, $t), $dups{$t} = $prev, next if $ss == $prevs;
   push @first, $t;
   $first_ind{$t} = @first;
-  $prev = $conv{$t} = $t;
+  $prev = $t;
   $prevs = $ss;
 }
 # warn "Dups: @dups{keys %dups}";
@@ -115,8 +115,8 @@ print OUT_0ARG <<EOP;
 #define RET_m1__(a)	(-1)
 
 const char duplicate_types_s[] = "$dups_s";
-const char name_by_t[]         = " " "$types_str";
-const unsigned char size_by_t[]      = {  1,  $sizeof, 0 };
+const char name_by_t[]         = "$types_str";
+const unsigned char size_by_t[]      = {  $sizeof, 0 };
 
 EOP
 

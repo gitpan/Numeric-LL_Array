@@ -21,7 +21,7 @@ require Exporter;
 	
 );
 
-$VERSION = '0.1301';
+$VERSION = '0.14';
 
 my %exported;
 sub import {
@@ -99,6 +99,7 @@ my %i = qw(gt lt ge le);
 
 sub db_win32() {
   my ($d, $n, @s) = (duplicateTypes(), typeNames(), %Numeric::LL_Array::typeSizes);
+#  my $ts = typeSizes();
   my @t = %Numeric::LL_Array::translateTypes;
   "s=(@s) t=(@t) d=`$d' n=`$n'";
 }

@@ -99,3 +99,7 @@ Revision history for Perl extension Numeric::LL_Array.
 		(triggered by longdblsize=8 on MSWin32???)
 	Remove space from the list of name tags (why did I put it there???)
 	New test to check sanity of the list of name tags.
+
+0.1401	sinl.t was giving uninterpolated message.
+	`sane elementary_D_missing()' was not taking into account
+		"double may eq long double".

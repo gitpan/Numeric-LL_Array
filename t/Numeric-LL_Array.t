@@ -281,4 +281,6 @@ is eval("use Numeric::LL_Array 'd2d1_nonesuch'; 1"), undef, "missing 1-arg";
 is eval("use Numeric::LL_Array 'dd2d2_nonesuch'; 1"), undef, "missing 2-arg";
 
 is eval("use Numeric::LL_Array 'D2D1_sin'; 1") || '',
-   !Numeric::LL_Array::elementary_D_missing(), "sane elementary_D_missing()";
+   (!Numeric::LL_Array::elementary_D_missing()
+    or ($Numeric::LL_Array::typeSizes{D} || 0) == $Numeric::LL_Array::typeSizes{d}),
+   "sane elementary_D_missing()";

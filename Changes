@@ -103,3 +103,27 @@ Revision history for Perl extension Numeric::LL_Array.
 0.1401	sinl.t was giving uninterpolated message.
 	`sane elementary_D_missing()' was not taking into account
 		"double may eq long double".
+
+0.15	Misprint in code generator might have missed casts when multiplying
+		e.g., char * quad into unsigned quad (is this cast needed???).
+	Rearrange chunks of generated C files to minimize max of .obj size (see
+   http://www.nntp.perl.org/group/perl.cpan.testers/2009/11/msg6070923.html
+		for example of running out of memory); now within 25%
+		of each other on i386 gcc2.8.2 (does not make sense to optimize
+		more, since non-portable).  Max .obj went from 410K to 285K
+		(the broken system could compile what was 211K on my system).
+	Try to deduce missing `cl' UQUAD to double conversion
+		(remove -DMY_NEED_UQUAD_TO_DOUBLE and option uquad2double
+		 in macro if false positive).
+	Implement UQUAD to double conversion.
+	Use UQUAD to double conversion for generated files (XXXX now only
+		for source, not for targ...)
+			XXX Need also for 1-arg with FP target:
+			   abs, ***=, min/max_assign, flip_sign, bitcomplement
+				(for ***= also with FP source???)
+			XXX Need also for wider targets of * and <<...
+			XXX Need also for + between UQuad and float...
+		Disable all 1-arg and 2-arg operations between Uquad and float
+			(unless transcendental functions)
+			(postpone until somebody actually needs it???).
+	have_uquad2double() for introspection

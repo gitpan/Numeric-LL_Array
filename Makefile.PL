@@ -31,6 +31,13 @@ EOW
   push @miss, 'cc-E';		# Just in case; we do not expect it yet...
   warn "cc -E failed; I assume non-BSD, so not a completely broken long double...\n";
 }
+
+if ($^O =~ /win/i and $Config{cc} =~ /^cl\b/ and 4 == ($Config{longsize} || 0)
+    and 8 == ($Config{longlongsize} || 0)) {	# Brain damaged cl v.12.00.8804
+  push @defs, '-DMY_NEED_UQUAD_TO_DOUBLE';	# http://www.nntp.perl.org/group/perl.cpan.testers/2009/11/msg6068070.html
+  push @miss, 'uquad2double';
+}
+
 $macros{WRITE_DRIVER_OPT} = "--miss=" . join ',', @miss if @miss;
 	# Communicate to sinl.t:
 open MISS, '>miss.miss' and print MISS "@miss" and close MISS;

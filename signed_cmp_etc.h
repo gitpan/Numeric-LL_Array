@@ -45,3 +45,11 @@
 #define self_assign_max_us(a,b)	self_assign_max_how(_us,(a),(b))
 
 #define	powl_cbrtl(a)	((a)>=0 ? powl((a),1/(long double)3) : -powl(-(a),1/(long double)3))
+
+#ifdef MY_NEED_UQUAD_TO_DOUBLE
+double uquad2double(Uquad_t u);
+#  define have_uquad2double()	0
+#else
+#  define uquad2double(arg)	(arg)
+#  define have_uquad2double()	1
+#endif

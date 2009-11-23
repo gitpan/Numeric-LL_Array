@@ -154,18 +154,20 @@ for my $c (['!', 'negate'], ['-', 'flip_sign'], ['~', 'bit_complement'],
   @allowed_types = grep !/[fdD]/, @allowed_types if $c->[0] eq '~';
   @allowed_types = grep /[fdD]/, @allowed_types if $c->[2];
   @allowed_types = grep !/D/, @allowed_types if defined $c->[2] and $miss{sinl};
-  my (%c_suff, %c_pref);
-  @c_pref{@allowed_types} = @c_suff{@allowed_types} = ('') x @allowed_types;
+  my (%c_suff, %c_pref, %do_conv);
+  @c_pref{@allowed_types} = @c_suff{@allowed_types} = @do_conv{@allowed_types}
+    = ('') x @allowed_types;
   $c_suff{D} = 'l' if defined $c->[2];
   $c_suff{D} and "$c->[0]$c_suff{D}" eq 'cbrtl' and $c_pref{D} = 'my_';
   $c->[0] eq 'abs' and $c_pref{$_} = 'f' for qw(f d D);
   $c->[0] eq 'abs' and $c_pref{$_} = 'l' for qw(l);
   $c->[0] eq 'abs' and $c_pref{$_} = 'my_ll' for qw(q);
   $c->[0] eq 'abs' and $c_pref{$_} = 'my_u' for qw(C S I L Q);
+  $do_conv{Q} = 'uquad2double' if $miss{uquad2double} and defined $c->[2];
   $name = "${_}0_$c->[1]", push(@list_0arg, [$name, $_]),
     print OUT_0ARG <<EOP for @allowed_types;
 #define TARG_ELT_TYPE		$type{$_}
-#define DO_0OP(targ)		(targ) = $c_pref{$_}$c->[0]$c_suff{$_}(targ)
+#define DO_0OP(targ)		(targ) = $c_pref{$_}$c->[0]$c_suff{$_}($do_conv{$_}(targ))
 #define THIS_OP_NAME		$name
 #include "code_0arg.h"
 #undef  TARG_ELT_TYPE
@@ -179,7 +181,7 @@ EOP
     print {$out_1arg[$out_1arg_i]{fh}} <<EOP for @allowed_types;
 #define SOURCE_ELT_TYPE		$type{$_}
 #define TARG_ELT_TYPE		$type{$_}
-#define DO_1OP(targ,source)	(targ) = $c_pref{$_}$c->[0]$c_suff{$_}(source)
+#define DO_1OP(targ,source)	(targ) = $c_pref{$_}$c->[0]$c_suff{$_}($do_conv{$_}(source))
 #define THIS_OP_NAME		$name
 #include "code_1arg.h"
 #undef  SOURCE_ELT_TYPE
@@ -212,11 +214,13 @@ for my $s (@use_types) {
     my $mid_convert = '';
     $mid_convert = '(int)' if "$s$t" =~ /[cs][fdD]|[fdD][cs]/; # Needed?
     $mid_convert = '(unsigned int)' if "$s$t" =~ /[CS][fdD]|[fdD][CS]/; # Needed?
+    $mid_convert = 'uquad2double'
+      if $miss{uquad2double} and "$s$t" =~ /[fdD]Q/; # d==D when {uquad2double}
     $name = "${s}2${t}1_assign", push(@{$out_1arg[$out_1arg_i]{sym}}, [$name, $t, $s]),
       print {$out_1arg[$out_1arg_i]{fh}} <<EOP;
 #define SOURCE_ELT_TYPE		$type{$s}
 #define TARG_ELT_TYPE		$type{$t}
-#define DO_1OP(targ,source)	(targ) = (TARG_ELT_TYPE)$mid_convert(source)
+#define DO_1OP(targ,source)	(targ) = (TARG_ELT_TYPE)($mid_convert(source))
 #define THIS_OP_NAME		$name
 #include "code_1arg.h"
 #undef  SOURCE_ELT_TYPE
@@ -252,18 +256,22 @@ for my $c (['!', 'negate'], ['-', 'flip_sign'], ['~', 'bit_complement'],
   @allowed_types = grep !/[fdD]/, @allowed_types if $c->[0] =~ /[~%|&^]/;
   @allowed_types = grep !/D/, @allowed_types
     if $miss{sinl} and ($c->[0] =~ /^(pow|<<|>>)/ or defined $c->[2]);
-  my (%c_suff, %c_pref);
-  @c_pref{@allowed_types} = @c_suff{@allowed_types} = ('') x @allowed_types;
+  my (%c_suff, %c_pref, %do_conv);
+  @c_pref{@allowed_types} = @c_suff{@allowed_types} = @do_conv{@allowed_types}
+    = ('') x @allowed_types;
   $c_suff{D} = 'l' if defined $c->[2];
   $c_suff{D} and "$c->[0]$c_suff{D}" eq 'cbrtl' and $c_pref{D} = 'my_';
   $c->[0] eq 'abs' and $c_pref{$_} = 'f' for qw(f d D);
   $c->[0] eq 'abs' and $c_pref{$_} = 'l' for qw(l);
   $c->[0] eq 'abs' and $c_pref{$_} = 'my_ll' for qw(q);
   $c->[0] eq 'abs' and $c_pref{$_} = 'my_u' for qw(C S I L Q);
+  $do_conv{Q} = 'uquad2double' if $miss{uquad2double} and defined $c->[2];
   for my $s (@allowed_types) {
     next if $s =~ /[fdD]/ and $c->[0] =~ /<<|>>/;
     for my $t (@allowed_types) {
       next if $c->[2] and ($s eq $t or $s !~ /[fdD]/);	# $s==$t: done earlier
+      next if $miss{uquad2double} and "$s$t" =~ /[fdD]Q|Q[fdD]/
+	and not defined $c->[2]; # XXXX tricky
       (my $_c = my $ccc = $c->[0]) =~ s/=//;
       $ccc = "$fp_vars{$_c}((targ), " if $fp_vars{$_c} and "$s$t" =~ /[fdD]/;
       $ccc =~ s/^(pow|ldexp(_neg)?)/${1}l/ if "$s$t" =~ /D/;
@@ -277,7 +285,7 @@ for my $c (['!', 'negate'], ['-', 'flip_sign'], ['~', 'bit_complement'],
       print {$out_1arg[$out_1arg_i]{fh}} <<EOP;
 #define SOURCE_ELT_TYPE		$type{$s}
 #define TARG_ELT_TYPE		$type{$t}
-#define DO_1OP(targ,source)	$targ $eq $c_pref{$s}$ccc$c_suff{$s}(source)$trailer
+#define DO_1OP(targ,source)	$targ $eq $c_pref{$s}$ccc$c_suff{$s}($do_conv{$s}(source))$trailer
 #define THIS_OP_NAME		$name
 #include "code_1arg.h"
 #undef  SOURCE_ELT_TYPE
@@ -296,15 +304,14 @@ my %t2_type = (qw( frexp int modf double modfl), 'long double');
 
 # 2-arg calls (with possible source and target types)
 for my $c (['+', 'plus'], ['-', 'minus'],
-	   ['|', 'bitor'], ['&', 'bitand'],
+	   ['|', 'bitor'], ['&', 'bitand'], ['assign_max', 'max'],
 	   '---',	# Break into parts; try to equalize # of functions
 	   ['*', 'mult'], ['assign_min', 'min'],
 	   '---',
-	   ['*', 'sproduct'], ['assign_max', 'max'],
-		# modf/frexp must be in the same section!
-	   ['modf', 'modf'], ['frexp', 'frexp'],
-	   '---',
-	   ['<<', 'lshift'], ['>>', 'rshift'], ['%', 'remainder'], ['^', 'bitxor'],
+	   ['*', 'sproduct'], ['%', 'remainder'], ['^', 'bitxor'], ['>>', 'rshift'],
+	   '---',		# modf AND frexp must be in the same section!
+	   ['modf', 'modf', 1], ['frexp', 'frexp', 1],
+	   ['<<', 'lshift'],
 	   '---',
 	   (map ["my_$_", $_], qw( eq ne )),
 	   '---',
@@ -324,9 +331,9 @@ for my $c (['+', 'plus'], ['-', 'minus'],
 	       or $ss{$s1} == $ss{$s2} and "$s1$s2" =~ /[CSILQ][csilq]/)
 	and $commutative{$c->[0]};
       next if $s2 =~ /[fdD]/ and $c->[0] =~ /<<|>>/;
-      my %t;  $t{$s1}++; $t{$s2}++;
-      my %cast_needed;
-      if ($c->[0] eq '*') {	# Wider output for mult/sproduct
+      my %t;  $t{$s1}++; $t{$s2}++;	# Output types to support
+      my %cast_needed;			# Need to cast sources before the op?
+      if ($c->[0] eq '*') {		# Wider output for mult/sproduct
 	if ("$s1$s2" =~ /[fdD]/) {	# Add wider floating types
 	  $t{$_}++, $cast_needed{$_}++
 	    for grep $type{$_} && $ss{$_} > $ss{$s2}, qw(f d D);
@@ -335,8 +342,8 @@ for my $c (['+', 'plus'], ['-', 'minus'],
 	    for grep $type{$_}, qw(f d D);	# add floating types
 	  $ss{$_} > $ss{$s2} and $t{$_}++, $cast_needed{$_}++
 	    for grep $type{$_}, qw(s S l L i I q Q);
-	  # Add unsigned variant of wider type:
-	  $cast_needed{uc $_}++ unless $t{uc $s2}++;
+	  # Add unsigned variant of wider type (one of $s2):
+	  $cast_needed{uc $s2}++ unless $t{uc $s2}++;
         } # if equal sizes & different types, $s2 = uc $s1 already added
       }
       if ($c->[0] eq '<<') {	# Same for lshift
@@ -352,6 +359,8 @@ for my $c (['+', 'plus'], ['-', 'minus'],
       my $next = $next_lc{$s2};
       $next = uc($next || '') unless "$s1$s2" !~ /[A-Z]/;
       for my $t (keys %t) {
+	next if $miss{uquad2double} and "$s1$s2$t" =~ /[fdD].*Q|Q.*[fdD]/
+	  and not $c->[2];	# XXXX tricky
         my ($mid, $pre, $OP) = ($c->[0], '');
 	($mid, $pre) = (',', $mid) if $mid =~ /^\w+$/;
 	($mid, $pre) = (',', $fp_vars{$mid})
@@ -368,11 +377,13 @@ for my $c (['+', 'plus'], ['-', 'minus'],
 	}
 	my $cast = $cast_needed{$t} ? '(TARG_ELT_TYPE)' : '';
 	$cast = "($type{$next})" if 222 == ($cast_needed{$t} || 0) and $next;
+	my ($cast1, $cast2) = ($cast, $cast);
+	$cast1 .= 'uquad2double' if $miss{uquad2double} and $c->[2] and $s1 eq 'Q';
 	$name = "${s1}${s2}2${t}2_$c->[1]";
 	push(@{ $t2_type{$pre} ? ($out_2targ = $out_2arg_i, \@list_1arg_2targs)
 			       : $out_2arg[$out_2arg_i]{sym} },
 	     [$name, $t, $s1, $s2]);
-	$OP = "(targ) $preassign= $pre($cast (s1) $mid $cast (s2))";
+	$OP = "(targ) $preassign= $pre($cast1 (s1) $mid $cast2 (s2))";
 	$OP = "$pre((s1), (s2), (targ))" if $pre =~ /^assign/;
 	print {$out_2arg[$out_2arg_i]{fh}} <<EOP;
 #define SOURCE1_ELT_TYPE	$type{$s1}

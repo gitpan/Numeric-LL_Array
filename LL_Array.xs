@@ -19,6 +19,15 @@ my_llabs (Quad_t _n) {
 }
 #endif
 
+#ifdef MY_NEED_UQUAD_TO_DOUBLE
+double uquad2double(Uquad_t u) {
+  Uquad_t U1 = u >> 32, U2 = u & 0xFFFFFFFF;
+  unsigned int u1 = (unsigned int)U1, u2 = (unsigned int)U2;
+
+  return ((double)u1)*(((double)0x10000)*((double)0x10000)) + (double)u2;
+}
+#endif
+
 carray_form
 sv_2_carray_form(int dim, SV *sv)
 {
@@ -524,3 +533,6 @@ ptrdiff_t_size()
 
 int
 elementary_D_missing()
+
+int
+have_uquad2double()

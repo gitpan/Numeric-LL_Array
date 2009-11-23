@@ -21,7 +21,7 @@ require Exporter;
 	
 );
 
-$VERSION = '0.1401';
+$VERSION = '0.15';
 
 my %exported;
 sub import {
@@ -663,6 +663,8 @@ But these operations are done in C, where they are much cheaper than in Perl.)
  NEED: pseudo-flavor: k-th coordinate of the index (or a linear combination?)
  NEED: All flavors of FFT
  NEED: Indirect access (use value of one array as index in another)
+ NEED: use long double C functions if argument is long long (???)
+ MAYBE: finish uquad2double()ization of handlers (for broken M$ compilers)
 
 BSD misses many C<long double> APIs (elementary functions, trunc(), rint()
 shifts, and C<**>).
@@ -689,6 +691,11 @@ C<long double> (at least in size).  In such a situation, we assume that these
 types are completely identical, and do not even try to compile functions with
 C<long double> arguments.  (We use the corresponding functions with C<double>
 argments instead.)
+
+Some M$ compilers are broken and do not support conversion of 64bit unsigned
+integers to double.  In such cases, we do not implement handlers mixing
+C<Q> and floating point types (but transcendental functions applied to
+C<Q> are supported).  For introspection: inspect result of have_uquad2double().
 
 =head1 AUTHOR
 

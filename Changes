@@ -127,3 +127,5 @@ Revision history for Perl extension Numeric::LL_Array.
 			(unless transcendental functions)
 			(postpone until somebody actually needs it???).
 	have_uquad2double() for introspection
+
+0.1501  add #line directives to code*.h to see which handler is processed now

@@ -1,3 +1,5 @@
+#line 2 methmakename(__FILE__)
+
 static void
 THIS_OP_NAME(const char *from1_s, S2_CONST char *from2_s, char *to_s,
  int dim, carray_form from1_form, carray_form from2_form, carray_form to_form)

@@ -53,3 +53,7 @@ double uquad2double(Uquad_t u);
 #  define uquad2double(arg)	(arg)
 #  define have_uquad2double()	1
 #endif
+
+#define my_strfy(a)	#a
+#define my_strfy2a(a,b)	my_strfy(a##(b))
+#define methmakename(f)	my_strfy2a(f,THIS_OP_NAME)

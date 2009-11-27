@@ -1,3 +1,5 @@
+#line 2 methmakename(__FILE__)
+
 static void
 THIS_OP_NAME(pTHX_ AV *av, const char *p_s, int dim, carray_form format)
 {

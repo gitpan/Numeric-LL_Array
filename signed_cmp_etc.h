@@ -55,5 +55,5 @@ double uquad2double(Uquad_t u);
 #endif
 
 #define my_strfy(a)	#a
-#define my_strfy2a(a,b)	my_strfy(a##(b))
+#define my_strfy2a(a,b)	my_strfy(a##__##b)
 #define methmakename(f)	my_strfy2a(f,THIS_OP_NAME)

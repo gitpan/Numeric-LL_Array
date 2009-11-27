@@ -1,4 +1,4 @@
-#line 2 methmakename(__FILE__)
+#line 2 methmakename(code_0arg_h)
 
 static void
 THIS_OP_NAME(char *to_s, int dim, carray_form to_form)

@@ -1,4 +1,4 @@
-#line 2 methmakename(__FILE__)
+#line 2 methmakename(code_0arg_h)
 
 static void
 THIS_OP_NAME(const char *from1_s, S2_CONST char *from2_s, char *to_s,

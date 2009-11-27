@@ -21,7 +21,7 @@ require Exporter;
 	
 );
 
-$VERSION = '0.1501';
+$VERSION = '0.1502';
 
 my %exported;
 sub import {

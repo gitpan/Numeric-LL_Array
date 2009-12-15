@@ -131,3 +131,5 @@ Revision history for Perl extension Numeric::LL_Array.
 0.1501  add #line directives to code*.h to see which handler is processed now
 
 0.1502	the macros for #line were not compatible with picky cpp's
+
+0.1503	the macros for #line need an extra stage of expansion

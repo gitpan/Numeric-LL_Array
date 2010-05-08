@@ -133,3 +133,7 @@ Revision history for Perl extension Numeric::LL_Array.
 0.1502	the macros for #line were not compatible with picky cpp's
 
 0.1503	the macros for #line need an extra stage of expansion
+
+0.1504	assign() OPCODE was checking for a need to uquad2double() with an
+		inverted source/target (UQUAD to double flavor).
+		See http://www.cpantesters.org/cpan/report/6933911

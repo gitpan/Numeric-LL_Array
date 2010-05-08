@@ -215,7 +215,7 @@ for my $s (@use_types) {
     $mid_convert = '(int)' if "$s$t" =~ /[cs][fdD]|[fdD][cs]/; # Needed?
     $mid_convert = '(unsigned int)' if "$s$t" =~ /[CS][fdD]|[fdD][CS]/; # Needed?
     $mid_convert = 'uquad2double'
-      if $miss{uquad2double} and "$s$t" =~ /[fdD]Q/; # d==D when {uquad2double}
+      if $miss{uquad2double} and "$s$t" =~ /Q[fdD]/; # d==D when {uquad2double}
     $name = "${s}2${t}1_assign", push(@{$out_1arg[$out_1arg_i]{sym}}, [$name, $t, $s]),
       print {$out_1arg[$out_1arg_i]{fh}} <<EOP;
 #define SOURCE_ELT_TYPE		$type{$s}
